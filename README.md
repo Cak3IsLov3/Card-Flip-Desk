@@ -19,9 +19,9 @@ when eBay goes down.
 | ![Charts](docs/screenshots/02-dashboard-charts.jpg) **Dashboard:** revenue and profit per month, margin per set, fastest and slowest sellers | ![Inventory](docs/screenshots/03-inventory.jpg) **Inventory:** filters (also by variant), main photo, variants, condition, age with colour and label |
 | ![Card form](docs/screenshots/04-card-form.jpg) **Card form:** several variants per card; the parallel name and serial number appear when Parallel is ticked | ![Photos](docs/screenshots/05-photos.jpg) **Photos:** front and back, main photo, ordering, checklist |
 | ![Listing generator](docs/screenshots/06-listing-generator.jpg) **Listing generator:** title of at most 80 characters with the variants, checks, profit at the asking price | ![Needs attention](docs/screenshots/07-attention.jpg) **Needs attention:** a suggestion per card; a price drop shows the new profit straight away |
-| ![Calculator](docs/screenshots/08-calculator.jpg) **Calculator:** from price to profit and from profit to price; a shipping method fills in the shipping cost | ![Shipping methods](docs/screenshots/10-shipping.jpg) **Shipping methods:** Deutsche Post and DHL prices to start with, editable |
+| ![Calculator](docs/screenshots/08-calculator.jpg) **Calculator:** from price to profit and from profit to price; a shipping method fills in the shipping cost | ![API docs](docs/screenshots/09-api-docs.jpg) **REST API:** OpenAPI docs with token authentication |
+| ![Shipping methods](docs/screenshots/10-shipping.jpg) **Shipping methods:** Deutsche Post and DHL prices to start with, editable | ![Edit a shipping method](docs/screenshots/13-shipping-edit.jpg) **Edit a shipping method:** change a price when DHL or Deutsche Post does; past sales keep their amounts |
 | ![Price advice](docs/screenshots/11-price-advice.jpg) **Price advice:** open eBay's sold items, paste the prices and get a suggested price; no API keys needed | ![Seller Hub import](docs/screenshots/12-seller-hub-import.jpg) **Seller Hub import:** a card suggested per sale (item number, SKU or title); rows with a problem are shown and skipped |
-| ![API docs](docs/screenshots/09-api-docs.jpg) **REST API:** OpenAPI docs with token authentication | |
 
 *The card images are generated placeholders from `seed_demo`.*
 
