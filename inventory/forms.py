@@ -61,6 +61,8 @@ class CardForm(forms.ModelForm):
             "insert_name": "Optional, e.g. Future Stars. Names you used before are suggested.",
         }
         widgets = {
+            "player": SuggestionInput,
+            "set_name": SuggestionInput,
             "listed_since": DateInput,
             "held_until": DateInput,
             "notes": forms.Textarea(attrs={"rows": 3}),
@@ -76,9 +78,9 @@ class CardForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["condition"].choices = [("", "Not specified"), *Condition.choices]
         if user is not None:
-            # Remember parallel and insert names: suggest the ones this user typed before.
+            # Remember names: suggest the ones this user typed before.
             own_cards = Card.objects.owned_by(user)
-            for field in ("parallel_name", "insert_name"):
+            for field in ("player", "set_name", "parallel_name", "insert_name"):
                 self.fields[field].widget.suggestions = own_cards.used_names(field)
 
     def clean(self):
