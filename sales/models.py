@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.conf import settings
 from django.db import models
 from django.db.models import Count, ExpressionWrapper, F, OuterRef, Subquery, Sum, Value
 from django.db.models.functions import Coalesce, TruncMonth
@@ -34,6 +35,29 @@ class Listing(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class ListingTemplate(models.Model):
+    """Patronen voor titel en beschrijving, met plaatshouders als {speler}.
+
+    De geldige plaatshouders staan in `sales.listing_generator.PLACEHOLDERS`.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="listing_templates"
+    )
+    name = models.CharField("naam", max_length=60)
+    title_pattern = models.CharField("titelpatroon", max_length=200)
+    description_pattern = models.TextField("beschrijvingspatroon", blank=True)
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "name"], name="unique_template_name_per_user")
+        ]
+
+    def __str__(self):
+        return self.name
 
 
 class SaleQuerySet(models.QuerySet):

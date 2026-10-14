@@ -87,4 +87,8 @@ td.num, th.num, td.nowrap { white-space: nowrap; }
 .key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
 .key-1 { background: var(--series-1); } .key-2 { background: var(--series-2); }
 .chart-card details { margin-top: .75rem; }
-.panel > table { width: 100%; }
+.panel > table { width: 100%; }.copy-row { display: flex; gap: .5rem; align-items: center; }
+.copy-row input { flex: 1; min-width: 0; }
+.field textarea { width: 100%; }
+.photo-grid-sm { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+code { font-size: .85em; background: var(--bg); padding: .05rem .3rem; border-radius: 4px; }

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Listing – {{ card }} – Card Flip Desk{% endblock %}
+{% block head %}<script src="{% static 'listing.js' %}" defer></script>{% endblock %}
+{% block content %}
+<h1>Listing maken</h1>
+<p><a href="{% url 'inventory:card_detail' card.pk %}">← {{ card }}</a></p>
+
+<div class="filters">
+  <div class="field">
+    <label for="template-select">Template</label>
+    <select id="template-select" name="template"
+            hx-get="{% url 'sales:listing_generator' card.pk %}" hx-target="#listing-form"
+            hx-swap="outerHTML" hx-push-url="true">
+      {% if showing_saved %}<option value="" selected disabled>Opgeslagen versie</option>{% endif %}
+      <option value="standaard"{% if template_key == "standaard" and not showing_saved %} selected{% endif %}>Standaard</option>
+      {% for t in templates %}<option value="{{ t.pk }}"{% if template_key == t.pk|stringformat:"s" %} selected{% endif %}>{{ t.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <a href="{% url 'sales:template_list' %}">Templates beheren</a>
+  <noscript><a href="?template=standaard">Opnieuw genereren</a></noscript>
+</div>
+
+{% include "sales/_listing_form.html" %}
+
+<section class="panel">
+  <h2>Foto's</h2>
+  {% if photos %}
+  <p class="muted small">Upload ze in deze volgorde bij eBay; de eerste is de hoofdfoto.</p>
+  <ul class="photo-grid photo-grid-sm">
+    {% for photo in photos %}
+    <li class="photo{% if photo.is_main %} is-main{% endif %}">
+      <a href="{% url 'inventory:photo_file' photo.pk %}" download>
+        <img src="{% url 'inventory:photo_thumb' photo.pk %}" alt="{{ photo.get_label_display }}" loading="lazy">
+      </a>
+      <span class="small">{{ forloop.counter }}. {{ photo.get_label_display }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">Nog geen foto's. <a href="{% url 'inventory:card_detail' card.pk %}#photo-panel">Foto's toevoegen</a></p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -13,7 +13,8 @@ verkoop op eBay, en uitrekent wat er na alle kosten echt overblijft.
 | 4 | Verkopen registreren, winst per kaart en per maand | ✅ |
 | 5 | Foto's per kaart (validatie, thumbnails, EXIF weg, privé-opslag) | ✅ |
 | 6 | Dashboard met KPI's, grafieken en voorraadleeftijd | ✅ |
-| 7–11 | Listing-generator, waarschuwingen, eBay, API, docs | open |
+| 7 | Listing-generator met templates en controles | ✅ |
+| 8–11 | Voorraadwaarschuwingen, eBay, API, docs | open |
 
 ## Starten
 
@@ -35,7 +36,8 @@ inventory/   Card, Purchase, CardQuerySet (filters, voorraadwaarde), CSV-import,
              CardPhoto + photos.py (verwerking), storage.py (privé-opslag)
 finance/     calculator.py (pure functies), FeeProfile
 sales/       Listing, Sale, SaleQuerySet (winst via subquery), services.register_sale,
-             dashboard.py (voegt queryset-cijfers samen, expliciete 'today')
+             dashboard.py (voegt queryset-cijfers samen, expliciete 'today'),
+             listing_generator.py (titels/beschrijvingen uit patronen), ListingTemplate
 tests/       pytest-django
 ```
 
@@ -99,3 +101,20 @@ andermans data. Dit wordt per endpoint getest.
 - **Grafieken** (Chart.js): één y-as per grafiek, kleuren uit CSS-variabelen
   met aparte, gevalideerde stappen voor licht en donker, tooltips, en een
   tabelweergave onder elke grafiek.
+### Listing-generator
+
+- **Patronen** met plaatshouders (`{jaar} {set} {speler} #{nummer} {variant} {conditie}`),
+  per gebruiker op te slaan als template. Onbekende plaatshouders worden bij
+  het opslaan geweigerd.
+- **Lege velden laten niets achter:** geen losse `#`, `()` of dubbele spaties,
+  en een regel als `Variant:` zonder waarde valt weg. Base-variant blijft leeg.
+- **Titel max. 80 tekens** (eBay). Langer wordt afgekapt op een woordgrens,
+  met een waarschuwing die noemt wat er wegvalt. Opslaan boven 80 kan niet.
+- **Tekens:** Unicode wordt genormaliseerd (NFC), stuurtekens en regeleinden
+  verdwijnen uit de titel; accenten blijven. Kaartgegevens worden niet
+  opnieuw als patroon gelezen (`{set}` als spelersnaam blijft letterlijk).
+  Alles is platte tekst en wordt bij het tonen ge-escaped.
+- **Controles:** titellengte, lege velden en de fotochecklist uit stap 5.
+- **Vraagprijs** toont direct de winst via de kostencalculator.
+- **Concept / actief:** "actief" zet de kaart op te koop met een
+  'te koop sinds'-datum; een latere verkoop gebruikt deze listing.

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ template.name }} – Card Flip Desk{% endblock %}
+{% block content %}
+<h1>{{ template.name }}</h1>
+<div class="grid">
+  <form method="post" class="panel">{% csrf_token %}
+    {% include "_form_fields.html" %}
+    <div class="actions">
+      <button>Opslaan</button>
+      <button class="danger" name="delete" value="1" formnovalidate>Verwijderen</button>
+      <a href="{% url 'sales:template_list' %}">Terug</a>
+    </div>
+  </form>
+  <section class="panel">{% include "sales/_placeholders.html" %}</section>
+</div>
+{% endblock %}

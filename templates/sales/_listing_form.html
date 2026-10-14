@@ -1,0 +1,55 @@
+<div id="listing-form">
+  {% if generated.warnings %}
+  <section class="panel">
+    <h2>Controle</h2>
+    <ul class="checklist">{% for w in generated.warnings %}<li>⚠ {{ w }}</li>{% endfor %}</ul>
+  </section>
+  {% else %}
+  <p class="good">✓ Titel past, alle velden ingevuld, voor- en achterkant aanwezig.</p>
+  {% endif %}
+
+  {% if listing %}
+    <p class="muted small">Opgeslagen als <span class="badge badge-{% if listing.status == 'active' %}for_sale{% endif %}">{{ listing.get_status_display }}</span>
+    {% if listing.listed_at %}sinds {{ listing.listed_at|date:"d-m-Y" }}{% endif %}.
+    {% if request.GET.template %}Het formulier toont een nieuw gegenereerde versie; sla op om die te bewaren.{% endif %}</p>
+  {% endif %}
+
+  <form method="post" action="{% url 'sales:listing_generator' card.pk %}{% if request.GET.template %}?template={{ request.GET.template|urlencode }}{% endif %}" class="panel">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="msg msg-error">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+
+    <div class="field{% if form.title.errors %} has-error{% endif %}">
+      <label for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+      <div class="copy-row">
+        {{ form.title }}
+        <button type="button" class="secondary" data-copy="{{ form.title.id_for_label }}">Kopiëren</button>
+      </div>
+      <small class="muted"><span data-count-for="{{ form.title.id_for_label }}">{{ form.title.value|length }}</span>/{{ title_max }} tekens</small>
+      {% for e in form.title.errors %}<small class="error">{{ e }}</small>{% endfor %}
+    </div>
+
+    <div class="field{% if form.description.errors %} has-error{% endif %}">
+      <label for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+      {{ form.description }}
+      <div><button type="button" class="secondary" data-copy="{{ form.description.id_for_label }}">Beschrijving kopiëren</button></div>
+    </div>
+
+    <div class="field{% if form.asking_price.errors %} has-error{% endif %}">
+      <label for="{{ form.asking_price.id_for_label }}">{{ form.asking_price.label }}</label>
+      <input type="number" step="0.01" min="0" name="asking_price" id="{{ form.asking_price.id_for_label }}"
+             value="{{ form.asking_price.value|default_if_none:'' }}" required
+             hx-get="{% url 'sales:listing_profit' card.pk %}" hx-trigger="input delay:300ms" hx-target="#listing-profit">
+      {% for e in form.asking_price.errors %}<small class="error">{{ e }}</small>{% endfor %}
+      <div id="listing-profit">{% include "sales/_listing_profit.html" %}</div>
+    </div>
+
+    <div class="actions">
+      <button name="save" value="1">Concept opslaan</button>
+      {% if not listing or listing.status != "active" %}
+      <button name="activate" value="1" class="secondary">Opslaan en als actief markeren</button>
+      {% endif %}
+      <a href="{% url 'finance:calculator' %}?card={{ card.pk }}">Prijs uitrekenen</a>
+    </div>
+    <p class="muted small">"Actief" betekent: je hebt hem zelf op eBay gezet. Plaatsen via de eBay-API komt later.</p>
+  </form>
+</div>

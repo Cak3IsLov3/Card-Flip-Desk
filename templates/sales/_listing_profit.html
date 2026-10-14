@@ -1,0 +1,7 @@
+{% load money %}
+{% if preview %}
+<small class="{% if preview.is_loss %}bad{% else %}muted{% endif %}">
+  Bij deze prijs (zonder verzending): commissie {{ preview.commission|euro }}, winst <strong>{{ preview.profit|euro }}</strong>, marge {{ preview.margin|pct }}.
+  {% if preview.is_loss %}Je maakt verlies.{% endif %}
+</small>
+{% endif %}
