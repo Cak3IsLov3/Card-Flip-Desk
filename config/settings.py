@@ -32,11 +32,14 @@ INSTALLED_APPS = [
     "django.contrib.humanize",
     "django_htmx",
     "rest_framework",
+    "rest_framework.authtoken",
+    "drf_spectacular",
     "inventory",
     "finance",
     "sales",
     "ebay",
     "pricing",
+    "api",
 ]
 
 MIDDLEWARE = [
@@ -154,5 +157,28 @@ TOKEN_ENCRYPTION_KEYS = [k for k in os.environ.get("TOKEN_ENCRYPTION_KEYS", "").
 
 
 REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication",
+        "rest_framework.authentication.SessionAuthentication",  # voor de docs in de browser
+    ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 50,
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.UserRateThrottle"],
+    "DEFAULT_THROTTLE_RATES": {"user": "2000/hour", "token": "10/minute"},
+    # Bedragen als string in JSON: geen float-afronding bij de afnemer.
+    "COERCE_DECIMAL_TO_STRING": True,
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Card Flip Desk API",
+    "DESCRIPTION": (
+        "Voorraad, foto's, listings, verkopen en de kostencalculator. "
+        "Authenticatie met `Authorization: Token <token>`; je ziet en wijzigt alleen je eigen data. "
+        "Bedragen zijn decimale strings in euro's."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
 }

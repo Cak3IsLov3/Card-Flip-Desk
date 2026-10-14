@@ -20,6 +20,7 @@
       <a href="{% url 'finance:calculator' %}">Calculator</a>
       <a href="{% url 'finance:fee_profiles' %}">Kostenprofielen</a>
       <a href="{% url 'ebay:connection' %}">eBay</a>
+      <a href="{% url 'api_token' %}">API</a>
       <form method="post" action="{% url 'logout' %}" class="inline">{% csrf_token %}
         <button class="link">Uitloggen ({{ user.username }})</button>
       </form>

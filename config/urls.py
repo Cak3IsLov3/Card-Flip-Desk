@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
+from api.token_views import api_token
 from sales.views import dashboard
 
 from .views import signup
@@ -17,4 +18,6 @@ urlpatterns = [
     path("verkopen/", include("sales.urls")),
     path("ebay/", include("ebay.urls")),
     path("prijsadvies/", include("pricing.urls")),
+    path("api/v1/", include("api.urls")),
+    path("api-token/", api_token, name="api_token"),
 ]

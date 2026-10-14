@@ -16,7 +16,8 @@ verkoop op eBay, en uitrekent wat er na alle kosten echt overblijft.
 | 7 | Listing-generator met templates en controles | ✅ |
 | 8 | Waarschuwingen voor oude voorraad, 'Aandacht nodig', wekelijkse mail | ✅ |
 | 9 | eBay OAuth + Browse API voor prijsadvies | ✅ |
-| 10–11 | REST API, docs | open |
+| 10 | REST API met token-auth en OpenAPI-docs | ✅ |
+| 11 | README met screenshots en architectuur | open |
 
 ## Starten
 
@@ -43,6 +44,7 @@ sales/       Listing, Sale, SaleQuerySet (winst via subquery), services.register
              listing_generator.py (titels/beschrijvingen uit patronen), ListingTemplate
 ebay/        client.py (tokens, retries, budget, ETag-cache), oauth.py, crypto.py
 pricing/     advice.py (actieve listings + eigen historie), PriceSnapshot
+api/         DRF-serializers en viewsets, token-pagina
 tests/       pytest-django, respx voor eBay-mocks
 ```
 
@@ -211,3 +213,37 @@ in de sessie bewaard en in constante tijd vergeleken.
 | `EBAY_MARKETPLACE_ID` / `EBAY_CURRENCY` | `EBAY_NL` / `EUR` |
 | `EBAY_CATEGORY_IDS` | optioneel, om het zoeken te beperken |
 | `TOKEN_ENCRYPTION_KEYS` | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
+### REST API
+
+Basis-URL `/api/v1/`, interactieve documentatie op **`/api/v1/docs/`**
+(Swagger UI) en het schema op `/api/v1/schema/` (OpenAPI 3, drf-spectacular,
+valideert zonder waarschuwingen).
+
+| Endpoint | Methoden |
+|---|---|
+| `cards/` (+ `?q=&status=&set_name=&year=`) | CRUD, `POST cards/{id}/generate-listing/` |
+| `purchases/` | CRUD |
+| `photos/` | upload (multipart), lijst, `PATCH` label, `DELETE`, `POST {id}/set-main/`, `GET {id}/file/`, `GET {id}/thumbnail/` |
+| `listings/`, `listing-templates/` | CRUD (een verkochte listing is bevroren) |
+| `sales/` | lijst, detail, aanmaken (kosten via het kostenprofiel) |
+| `fee-profiles/` | CRUD |
+| `calculator/`, `calculator/reverse/` | `POST` |
+| `auth/token/` | `POST` gebruikersnaam + wachtwoord → token (max. 10 per minuut) |
+
+```bash
+curl -H "Authorization: Token <token>" http://localhost:8000/api/v1/cards/?status=for_sale
+```
+
+- **Authenticatie:** `Authorization: Token …`. Het token maak, vernieuw of
+  trek je in op de pagina **API** in de app. Voor de docs in de browser werkt
+  ook de gewone sessie.
+- **Alleen eigen data**, op twee lagen: elke queryset is gefilterd op de
+  gebruiker (andermans object geeft 404), en een `IsOwner`-permissie
+  controleert het object nog eens. Verwijst invoer naar andermans kaart of
+  kostenprofiel, dan volgt dezelfde 400 als bij een id dat niet bestaat.
+- **Dezelfde services als de webapp:** foto-validatie en EXIF-verwijdering,
+  `register_sale`, de calculator en de listing-generator. De regels gelden
+  dus ook via de API.
+- **Bedragen zijn decimale strings** (`"5.24"`), geen floats.
+- **Throttling:** 2000 verzoeken per uur per gebruiker. Lijsten zijn
+  gepagineerd per 50 en draaien in een vast aantal query's.
