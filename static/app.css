@@ -54,3 +54,20 @@ dl.kv { display: grid; grid-template-columns: max-content 1fr; gap: .3rem 1rem; 
 dl.kv dt { color: var(--muted); }
 dl.kv dd { margin: 0; font-variant-numeric: tabular-nums; }
 pre.preview { overflow-x: auto; background: var(--bg); padding: .5rem; border-radius: 6px; font-size: .85rem; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.thumb-cell { width: 52px; }
+.thumb-sm { display: block; width: 44px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid var(--line); }
+.thumb-empty { background: var(--bg); }
+.checklist { list-style: none; padding: 0; margin: 0 0 .75rem; color: var(--warn); }
+.photo-grid { list-style: none; padding: 0; margin: 0 0 1rem; display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.photo { border: 1px solid var(--line); border-radius: 6px; padding: .5rem; display: flex; flex-direction: column; gap: .4rem; }
+.photo.is-main { border-color: var(--accent); }
+.photo img { width: 100%; aspect-ratio: 5 / 7; object-fit: contain; background: var(--bg); border-radius: 4px; }
+.photo select { width: 100%; }
+.photo-actions { display: flex; flex-wrap: wrap; gap: .3rem; }
+.photo-actions form { display: inline; }
+.photo-actions button { padding: .25rem .5rem; font-size: .85rem; }
+.photo input[type=file] { width: 100%; font-size: .8rem; }
+.grid > * { min-width: 0; }
+.panel table { display: block; overflow-x: auto; }
+td.num, th.num, td.nowrap { white-space: nowrap; }

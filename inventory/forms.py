@@ -2,7 +2,7 @@ from django import forms
 from django.utils import timezone
 
 from .csv_import import IMPORT_FIELDS, REQUIRED_FIELDS
-from .models import Card, CardStatus, Purchase
+from .models import Card, CardStatus, PhotoLabel, Purchase
 
 
 class DateInput(forms.DateInput):
@@ -61,6 +61,43 @@ class CardFilterForm(forms.Form):
         if data.get("year"):
             qs = qs.filter(year=data["year"])
         return qs
+
+
+IMAGE_ACCEPT = "image/jpeg,image/png,image/webp"
+
+
+class MultipleImageInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("widget", MultipleImageInput(attrs={"accept": IMAGE_ACCEPT}))
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single = super().clean
+        if isinstance(data, (list, tuple)):
+            return [single(d, initial) for d in data]
+        return [single(data, initial)]
+
+
+class PhotoUploadForm(forms.Form):
+    """Alleen de vorm wordt hier gecontroleerd; type, grootte en afmetingen
+    controleert photos.process_image op basis van de inhoud."""
+
+    files = MultipleFileField(label="Foto's")
+    label = forms.ChoiceField(label="Soort", choices=PhotoLabel.choices, initial=PhotoLabel.FRONT)
+
+
+class PhotoReplaceForm(forms.Form):
+    file = forms.FileField(
+        label="Nieuwe foto", widget=forms.ClearableFileInput(attrs={"accept": IMAGE_ACCEPT})
+    )
+
+
+class PhotoLabelForm(forms.Form):
+    label = forms.ChoiceField(choices=PhotoLabel.choices)
 
 
 class CsvUploadForm(forms.Form):

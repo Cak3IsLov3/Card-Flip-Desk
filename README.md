@@ -11,7 +11,8 @@ verkoop op eBay, en uitrekent wat er na alle kosten echt overblijft.
 | 2 | CSV-import met kolomkoppeling en foutrapport | ✅ |
 | 3 | Kostencalculator met FeeProfile (vooruit en omgekeerd) | ✅ |
 | 4 | Verkopen registreren, winst per kaart en per maand | ✅ |
-| 5–11 | Foto's, dashboard, listing-generator, waarschuwingen, eBay, API, docs | open |
+| 5 | Foto's per kaart (validatie, thumbnails, EXIF weg, privé-opslag) | ✅ |
+| 6–11 | Dashboard, listing-generator, waarschuwingen, eBay, API, docs | open |
 
 ## Starten
 
@@ -29,7 +30,8 @@ Tests: `.venv\Scripts\python -m pytest`
 
 ```
 config/      settings, urls, registratie (maakt een startkostenprofiel aan)
-inventory/   Card, Purchase, CardQuerySet (filters, voorraadwaarde), CSV-import
+inventory/   Card, Purchase, CardQuerySet (filters, voorraadwaarde), CSV-import,
+             CardPhoto + photos.py (verwerking), storage.py (privé-opslag)
 finance/     calculator.py (pure functies), FeeProfile
 sales/       Listing, Sale, SaleQuerySet (winst via subquery), services.register_sale
 tests/       pytest-django
@@ -59,3 +61,23 @@ de actuele tarieven in je eBay-account.
 
 Elke view filtert op `owner=request.user` en geeft 404 (niet 403) bij
 andermans data. Dit wordt per endpoint getest.
+
+### Foto's
+
+- **Inhoud bepaalt het type.** Pillow leest de kop; alleen JPEG, PNG en WebP
+  komen door. Extensie en Content-Type van de browser tellen niet.
+- **Limieten vóór decoderen.** Bestandsgrootte (10 MB) en afmetingen
+  (8000 px) worden gecontroleerd voordat de pixels in het geheugen komen.
+- **Alles wordt hercodeerd.** Verkleind tot 1600 px plus een thumbnail van
+  300 px. Daarbij verdwijnen EXIF (GPS, camera), XMP en PNG-tekstblokken; de
+  EXIF-oriëntatie wordt eerst toegepast. Het kleurprofiel blijft.
+- **Willekeurige namen.** `cards/<uuid>.<ext>`; de bestandsnaam van de
+  gebruiker komt nergens in het pad.
+- **Geen publieke URL.** Bestanden staan in `PRIVATE_MEDIA_ROOT` en worden
+  uitgeleverd door een view die de eigenaar controleert
+  (`Cache-Control: private`). `storage.url()` gooit bewust een fout.
+  Overstappen op S3 = de `photos`-backend in `STORAGES` vervangen.
+- **Maximaal één hoofdfoto**, afgedwongen met een database-constraint.
+- **Opruimen na commit.** Bij verwijderen of vervangen (ook via het
+  verwijderen van een kaart) gaan de bestanden pas weg als de transactie
+  slaagt.

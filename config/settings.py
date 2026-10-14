@@ -100,6 +100,24 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
+# Foto's staan buiten elke publieke map en worden alleen via een view met
+# eigenaarscontrole uitgeleverd. Wissel naar S3-compatibele opslag door de
+# "photos"-backend te vervangen; de modellen hoeven daarvoor niet te veranderen.
+PRIVATE_MEDIA_ROOT = Path(os.environ.get("PRIVATE_MEDIA_ROOT", BASE_DIR / "private_media"))
+
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    "photos": {"BACKEND": "inventory.storage.PrivatePhotoStorage"},
+}
+
+PHOTO_MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB per bestand
+PHOTO_MAX_INPUT_DIMENSION = 8000  # px; grotere bestanden worden geweigerd
+PHOTO_MAX_DIMENSION = 1600  # px; langste zijde na verkleinen
+PHOTO_THUMB_SIZE = 300  # px; langste zijde van de thumbnail
+PHOTOS_PER_CARD = 6
+
+
 MAILERS = {
     "default": {
         "BACKEND": "django.core.mail.backends.console.EmailBackend",

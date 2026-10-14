@@ -1,9 +1,13 @@
+import os
+import uuid
 from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
 from django.db.models import Count, Q, Sum
 from django.db.models.functions import Coalesce
+
+from .storage import photo_storage
 
 
 class CardStatus(models.TextChoices):
@@ -105,6 +109,50 @@ class Card(models.Model):
         return sum(
             (p.price + p.shipping_in for p in self.purchases.all()), Decimal("0.00")
         )
+
+
+class PhotoLabel(models.TextChoices):
+    FRONT = "front", "Voorkant"
+    BACK = "back", "Achterkant"
+    CORNER = "corner", "Hoek"
+    DEFECT = "defect", "Defect"
+    OTHER = "other", "Overig"
+
+
+def photo_upload_to(instance, filename):
+    # De naam die hier binnenkomt komt van ons (bijv. "upload.jpg"), nooit
+    # van de gebruiker; alleen de extensie wordt overgenomen.
+    ext = os.path.splitext(filename)[1].lower()
+    return f"cards/{uuid.uuid4().hex}{ext}"
+
+
+def thumb_upload_to(instance, filename):
+    ext = os.path.splitext(filename)[1].lower()
+    return f"cards/thumbs/{uuid.uuid4().hex}{ext}"
+
+
+class CardPhoto(models.Model):
+    card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="photos")
+    image = models.ImageField(upload_to=photo_upload_to, storage=photo_storage)
+    thumbnail = models.ImageField(upload_to=thumb_upload_to, storage=photo_storage)
+    width = models.PositiveIntegerField(default=0)
+    height = models.PositiveIntegerField(default=0)
+    content_type = models.CharField(max_length=20)
+    position = models.PositiveSmallIntegerField("volgorde", default=0)
+    is_main = models.BooleanField("hoofdfoto", default=False)
+    label = models.CharField(max_length=10, choices=PhotoLabel.choices, default=PhotoLabel.OTHER)
+    uploaded_at = models.DateTimeField("geüpload op", auto_now_add=True)
+
+    class Meta:
+        ordering = ["position", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["card"], condition=Q(is_main=True), name="one_main_photo_per_card"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.get_label_display()} – {self.card}"
 
 
 class Purchase(models.Model):

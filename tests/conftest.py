@@ -8,6 +8,13 @@ from finance.models import FeeProfile
 from inventory.models import Card, Purchase
 
 
+@pytest.fixture(autouse=True)
+def private_media(settings, tmp_path):
+    """Elke test schrijft foto's naar een eigen tijdelijke map."""
+    settings.PRIVATE_MEDIA_ROOT = tmp_path / "private_media"
+    return settings.PRIVATE_MEDIA_ROOT
+
+
 @pytest.fixture
 def user(db):
     return get_user_model().objects.create_user("alice", password="test-pass-123")

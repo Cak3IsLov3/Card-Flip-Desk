@@ -32,7 +32,7 @@
       <thead><tr><th>Datum</th><th>Bron</th><th class="num">Prijs</th><th class="num">Verzending</th></tr></thead>
       <tbody>
       {% for p in purchases %}
-        <tr><td>{{ p.date|date:"d-m-Y" }}</td><td>{{ p.source|default:"–" }}</td><td class="num">{{ p.price|euro }}</td><td class="num">{{ p.shipping_in|euro }}</td></tr>
+        <tr><td class="nowrap">{{ p.date|date:"d-m-Y" }}</td><td>{{ p.source|default:"–" }}</td><td class="num">{{ p.price|euro }}</td><td class="num">{{ p.shipping_in|euro }}</td></tr>
       {% empty %}<tr><td colspan="4" class="muted">Nog geen inkoop vastgelegd.</td></tr>{% endfor %}
       </tbody>
       <tfoot><tr><th colspan="3">Totaal</th><th class="num">{{ card.total_cost|euro }}</th></tr></tfoot>
@@ -63,4 +63,6 @@
   </section>
   {% endif %}
 </div>
+
+{% include "inventory/_photo_panel.html" %}
 {% endblock %}

@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -9,7 +10,8 @@ from sales.services import card_profit
 
 from . import csv_import
 from .forms import CardFilterForm, CardForm, CsvMappingForm, CsvUploadForm, PurchaseForm
-from .models import Card, CardStatus
+from .models import Card, CardPhoto, CardStatus
+from .photo_views import photo_panel_context
 
 CSV_SESSION_KEY = "csv_import_content"
 
@@ -23,7 +25,14 @@ def _own_card(request, pk):
 def card_list(request):
     cards = Card.objects.owned_by(request.user)
     filter_form = CardFilterForm(request.GET or None)
-    filtered = filter_form.apply(cards).with_cost().order_by("-created_at")
+    filtered = (
+        filter_form.apply(cards)
+        .with_cost()
+        .prefetch_related(
+            Prefetch("photos", CardPhoto.objects.filter(is_main=True), to_attr="main_photos")
+        )
+        .order_by("-created_at")
+    )
     page = Paginator(filtered, 25).get_page(request.GET.get("page"))
     params = request.GET.copy()
     params.pop("page", None)
@@ -50,7 +59,7 @@ def card_detail(request, pk):
         request,
         "inventory/card_detail.html",
         {
-            "card": card,
+            **photo_panel_context(card),
             "purchases": card.purchases.all(),
             "purchase_form": PurchaseForm(),
             "sale": Sale.objects.filter(listing__card=card).first(),

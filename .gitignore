@@ -6,3 +6,4 @@ media/
 .pytest_cache/
 .env
 .claude/
+private_media/
