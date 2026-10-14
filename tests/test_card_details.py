@@ -108,13 +108,14 @@ def test_condition_migration_maps_text_and_keeps_the_rest_in_notes(user, make_ca
     known = make_card(user, player="known")
     unknown = make_card(user, player="unknown", notes="Bought at a fair.")
     Card.objects.filter(pk=known.pk).update(condition="NM-MT")
-    Card.objects.filter(pk=unknown.pk).update(condition="slight crease top left")
+    # The current column holds 20 characters (PostgreSQL enforces that; SQLite does not).
+    Card.objects.filter(pk=unknown.pk).update(condition="crease top left")
     condition_migration.forwards(apps, None)
     known.refresh_from_db()
     unknown.refresh_from_db()
     assert known.condition == "near_mint"
     assert unknown.condition == ""
-    assert unknown.notes == "Bought at a fair.\nCondition (before it became a choice): slight crease top left"
+    assert unknown.notes == "Bought at a fair.\nCondition (before it became a choice): crease top left"
 
 
 # --- where it is used --------------------------------------------------------
