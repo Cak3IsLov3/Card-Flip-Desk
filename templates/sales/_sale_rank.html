@@ -1,0 +1,10 @@
+{% load money %}
+{% if rows %}
+<table>
+  <tbody>{% for s in rows %}
+    <tr><td><a href="{% url 'inventory:card_detail' s.listing.card.pk %}">{{ s.listing.card }}</a>
+      <div class="muted small">{{ s.sold_at|date:"d-m-Y" }}</div></td>
+      <td class="num {% if s.profit < 0 %}bad{% else %}good{% endif %}">{{ s.profit|euro }}</td></tr>
+  {% endfor %}</tbody>
+</table>
+{% else %}<p class="muted">Nog geen verkopen in deze periode.</p>{% endif %}

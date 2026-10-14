@@ -1,13 +1,14 @@
 from decimal import Decimal
 
 from django.db import models
-from django.db.models import ExpressionWrapper, F, OuterRef, Subquery, Sum, Value
+from django.db.models import Count, ExpressionWrapper, F, OuterRef, Subquery, Sum, Value
 from django.db.models.functions import Coalesce, TruncMonth
 
 from finance.calculator import ZERO
 from inventory.models import Card, Purchase
 
 MONEY = dict(max_digits=10, decimal_places=2)
+DEC = models.DecimalField(max_digits=14, decimal_places=2)
 
 
 class ListingStatus(models.TextChoices):
@@ -65,16 +66,65 @@ class SaleQuerySet(models.QuerySet):
             cost=Coalesce(Subquery(cost, output_field=dec), Value(ZERO), output_field=dec),
         ).annotate(profit=ExpressionWrapper(F("net") - F("cost"), output_field=dec))
 
+    def in_period(self, start=None, end=None):
+        qs = self
+        if start:
+            qs = qs.filter(sold_at__gte=start)
+        if end:
+            qs = qs.filter(sold_at__lte=end)
+        return qs
+
     def profit_per_month(self):
         return (
             self.with_profit()
             .annotate(month=TruncMonth("sold_at"))
             .values("month")
             .annotate(
-                revenue=Sum(F("sale_price") + F("shipping_income")),
-                profit_total=Sum("profit"),
+                revenue=Sum(F("sale_price") + F("shipping_income"), output_field=DEC),
+                profit_total=Sum("profit", output_field=DEC),
             )
             .order_by("month")
+        )
+
+    def totals(self):
+        """Aantal, omzet (bruto), netto, winst. Eén query."""
+        return self.with_profit().aggregate(
+            count=Count("id"),
+            revenue=Coalesce(Sum(F("sale_price") + F("shipping_income"), output_field=DEC), Value(ZERO)),
+            net_total=Coalesce(Sum("net", output_field=DEC), Value(ZERO)),
+            profit_total=Coalesce(Sum("profit", output_field=DEC), Value(ZERO)),
+        )
+
+    def per_set(self):
+        return (
+            self.with_profit()
+            .values("listing__card__set_name", "listing__card__year")
+            .annotate(
+                count=Count("id"),
+                revenue=Sum(F("sale_price") + F("shipping_income"), output_field=DEC),
+                profit_total=Sum("profit", output_field=DEC),
+            )
+            .order_by("-profit_total", "listing__card__set_name")
+        )
+
+    def with_days_to_sale(self):
+        """Dagen tot verkoop: vanaf 'te koop sinds', anders vanaf de eerste
+        inkoopdatum. Zonder beide is de waarde None."""
+        first_purchase = (
+            Purchase.objects.filter(card=OuterRef("listing__card"))
+            .order_by("date")
+            .values("date")[:1]
+        )
+        return self.annotate(
+            start_date=Coalesce(
+                F("listing__card__listed_since"),
+                Subquery(first_purchase, output_field=models.DateField()),
+                output_field=models.DateField(),
+            )
+        ).annotate(
+            days_to_sale=ExpressionWrapper(
+                F("sold_at") - F("start_date"), output_field=models.DurationField()
+            )
         )
 
 

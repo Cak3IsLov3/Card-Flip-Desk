@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, F, Min, Q, Sum
 from django.db.models.functions import Coalesce
 
 from .storage import photo_storage
@@ -58,6 +58,15 @@ class CardQuerySet(models.QuerySet):
                 output_field=models.DecimalField(max_digits=12, decimal_places=2),
             )
         )["total"]
+
+    def unsold_by_age(self):
+        """Onverkochte kaarten met inkoopkosten, oudste inkoop eerst."""
+        return (
+            self.exclude(status=CardStatus.SOLD)
+            .with_cost()
+            .annotate(acquired_on=Min("purchases__date"))
+            .order_by(F("acquired_on").asc(nulls_last=True), "id")
+        )
 
     def count_per_set(self):
         return (

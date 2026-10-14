@@ -1,10 +1,12 @@
 :root {
   --bg: #f6f7f9; --panel: #fff; --text: #1d2330; --muted: #667085; --line: #e3e6eb;
   --accent: #2459d6; --good: #1a7f4b; --bad: #c0392b; --warn: #b7791f;
+  --series-1: #2a78d6; --series-2: #eb6834;
 }
 @media (prefers-color-scheme: dark) {
   :root { --bg: #14171c; --panel: #1c2027; --text: #e7e9ee; --muted: #9aa3b2; --line: #2c323c;
-          --accent: #6d97ff; --good: #4fc788; --bad: #ff7a6b; --warn: #f0b552; }
+          --accent: #6d97ff; --good: #4fc788; --bad: #ff7a6b; --warn: #f0b552;
+          --series-1: #3987e5; --series-2: #d95926; }
 }
 * { box-sizing: border-box; }
 body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
@@ -69,5 +71,20 @@ pre.preview { overflow-x: auto; background: var(--bg); padding: .5rem; border-ra
 .photo-actions button { padding: .25rem .5rem; font-size: .85rem; }
 .photo input[type=file] { width: 100%; font-size: .8rem; }
 .grid > * { min-width: 0; }
-.panel table { display: block; overflow-x: auto; }
 td.num, th.num, td.nowrap { white-space: nowrap; }
+.small { font-size: .85rem; }
+.segmented { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-bottom: .5rem; background: var(--panel); }
+.segmented a { padding: .35rem .8rem; color: var(--text); border-right: 1px solid var(--line); }
+.segmented a:last-child { border-right: 0; }
+.segmented a[aria-current] { background: var(--accent); color: #fff; }
+.segmented a:hover { text-decoration: none; background: var(--bg); }
+.segmented a[aria-current]:hover { background: var(--accent); }
+.grid-wide { grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+.chart-box { position: relative; height: 260px; }
+.chart-box[style*="--rows"] { height: calc(60px + var(--rows) * 30px); min-height: 140px; max-height: 420px; }
+.legend { display: flex; gap: 1rem; font-size: .85rem; color: var(--muted); margin-bottom: .5rem; }
+.legend span { display: inline-flex; align-items: center; gap: .35rem; }
+.key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+.key-1 { background: var(--series-1); } .key-2 { background: var(--series-2); }
+.chart-card details { margin-top: .75rem; }
+.panel > table { width: 100%; }

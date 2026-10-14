@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Card Flip Desk{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'app.css' %}">
+  {% block head %}{% endblock %}
   <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
 </head>
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
@@ -12,6 +13,7 @@
     <a class="brand" href="{% url 'inventory:card_list' %}">Card Flip Desk</a>
     {% if user.is_authenticated %}
     <nav>
+      <a href="{% url 'dashboard' %}">Dashboard</a>
       <a href="{% url 'inventory:card_list' %}">Voorraad</a>
       <a href="{% url 'sales:sale_list' %}">Verkopen</a>
       <a href="{% url 'finance:calculator' %}">Calculator</a>

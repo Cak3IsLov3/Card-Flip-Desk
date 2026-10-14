@@ -12,7 +12,8 @@ verkoop op eBay, en uitrekent wat er na alle kosten echt overblijft.
 | 3 | Kostencalculator met FeeProfile (vooruit en omgekeerd) | ✅ |
 | 4 | Verkopen registreren, winst per kaart en per maand | ✅ |
 | 5 | Foto's per kaart (validatie, thumbnails, EXIF weg, privé-opslag) | ✅ |
-| 6–11 | Dashboard, listing-generator, waarschuwingen, eBay, API, docs | open |
+| 6 | Dashboard met KPI's, grafieken en voorraadleeftijd | ✅ |
+| 7–11 | Listing-generator, waarschuwingen, eBay, API, docs | open |
 
 ## Starten
 
@@ -33,7 +34,8 @@ config/      settings, urls, registratie (maakt een startkostenprofiel aan)
 inventory/   Card, Purchase, CardQuerySet (filters, voorraadwaarde), CSV-import,
              CardPhoto + photos.py (verwerking), storage.py (privé-opslag)
 finance/     calculator.py (pure functies), FeeProfile
-sales/       Listing, Sale, SaleQuerySet (winst via subquery), services.register_sale
+sales/       Listing, Sale, SaleQuerySet (winst via subquery), services.register_sale,
+             dashboard.py (voegt queryset-cijfers samen, expliciete 'today')
 tests/       pytest-django
 ```
 
@@ -81,3 +83,19 @@ andermans data. Dit wordt per endpoint getest.
 - **Opruimen na commit.** Bij verwijderen of vervangen (ook via het
   verwijderen van een kaart) gaan de bestanden pas weg als de transactie
   slaagt.
+### Dashboard
+
+- **Query's in querysets** (`SaleQuerySet.totals/per_set/with_days_to_sale`,
+  `CardQuerySet.unsold_by_age`); `sales/dashboard.py` voegt ze samen en krijgt
+  `today` mee, zodat periodegrenzen zonder klokmanipulatie te testen zijn.
+  De hele pagina draait in een vast, getest maximum aantal query's.
+- **Marge is gewogen:** totale winst ÷ totale omzet, niet het gemiddelde van
+  losse marges (dan telt een kaart van € 1 even zwaar als een van € 50).
+- **Dagen tot verkoop** tellen vanaf "te koop sinds", anders vanaf de eerste
+  inkoopdatum.
+- **Periodefilter** (30 / 90 dagen, 12 maanden, alles) geldt voor alle
+  verkoopcijfers; voorraadcijfers gelden altijd voor vandaag. Maanden zonder
+  verkoop staan als nul in de grafiek.
+- **Grafieken** (Chart.js): één y-as per grafiek, kleuren uit CSS-variabelen
+  met aparte, gevalideerde stappen voor licht en donker, tooltips, en een
+  tabelweergave onder elke grafiek.

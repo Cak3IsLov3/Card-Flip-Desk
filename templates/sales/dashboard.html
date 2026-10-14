@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% load static money %}
+{% block title %}Dashboard – Card Flip Desk{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js" defer></script>
+<script src="{% static 'dashboard.js' %}" defer></script>
+{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<nav class="segmented" aria-label="Periode">
+  {% for key, p in periods.items %}
+    <a href="?periode={{ key }}"{% if key == d.period %} aria-current="true"{% endif %}>{{ p.0 }}</a>
+  {% endfor %}
+</nav>
+<p class="muted small">
+  {% if d.start %}Verkopen van {{ d.start|date:"j F Y" }} t/m {{ d.today|date:"j F Y" }}.{% else %}Alle verkopen.{% endif %}
+  Voorraadcijfers gelden altijd voor vandaag.
+</p>
+
+<div class="stats">
+  <div class="stat"><div class="label">Omzet</div><div class="value">{{ d.revenue|euro }}</div><div class="muted small">{{ d.sales_count }} verkoop{{ d.sales_count|pluralize:"en" }}</div></div>
+  <div class="stat"><div class="label">Winst</div><div class="value {% if d.profit < 0 %}bad{% endif %}">{{ d.profit|euro }}</div></div>
+  <div class="stat"><div class="label">Gemiddelde marge</div><div class="value">{{ d.margin|pct }}</div><div class="muted small">winst ÷ omzet</div></div>
+  <div class="stat"><div class="label">Vast in voorraad</div><div class="value">{{ d.stock_value|euro }}</div><div class="muted small">{{ d.stock_count }} onverkochte kaart{{ d.stock_count|pluralize:"en" }}</div></div>
+</div>
+
+{{ chart_data|json_script:"chart-data" }}
+
+<div class="grid grid-wide">
+  <section class="panel chart-card">
+    <h2>Omzet en winst per maand</h2>
+    <div class="legend" aria-hidden="true">
+      <span><i class="key key-1"></i>Omzet</span><span><i class="key key-2"></i>Winst</span>
+    </div>
+    <div class="chart-box"><canvas id="chart-months" role="img" aria-label="Staafdiagram van omzet en winst per maand; de cijfers staan in de tabel eronder."></canvas></div>
+    <details>
+      <summary>Tabel</summary>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Maand</th><th class="num">Omzet</th><th class="num">Winst</th></tr></thead>
+        <tbody>{% for m in d.months %}<tr><td>{{ m.month|date:"F Y" }}</td><td class="num">{{ m.revenue|euro }}</td><td class="num {% if m.profit < 0 %}bad{% endif %}">{{ m.profit|euro }}</td></tr>{% endfor %}</tbody>
+      </table></div>
+    </details>
+  </section>
+
+  <section class="panel chart-card">
+    <h2>Marge per set</h2>
+    {% if d.sets %}
+    <div class="chart-box" style="--rows: {{ chart_data.sets.labels|length }}"><canvas id="chart-sets" role="img" aria-label="Staafdiagram van de marge per set; de cijfers staan in de tabel eronder."></canvas></div>
+    <details>
+      <summary>Tabel</summary>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Set</th><th class="num">Verkopen</th><th class="num">Omzet</th><th class="num">Winst</th><th class="num">Marge</th></tr></thead>
+        <tbody>{% for s in d.sets %}<tr><td>{{ s.set_name }} {{ s.year }}</td><td class="num">{{ s.count }}</td><td class="num">{{ s.revenue|euro }}</td><td class="num {% if s.profit < 0 %}bad{% endif %}">{{ s.profit|euro }}</td><td class="num">{{ s.margin|pct }}</td></tr>{% endfor %}</tbody>
+      </table></div>
+    </details>
+    {% else %}<p class="muted">Nog geen verkopen in deze periode.</p>{% endif %}
+  </section>
+</div>
+
+<div class="grid">
+  <section class="panel">
+    <h2>Meeste winst</h2>
+    {% include "sales/_sale_rank.html" with rows=d.best_cards %}
+  </section>
+  <section class="panel">
+    <h2>Minste winst</h2>
+    {% include "sales/_sale_rank.html" with rows=d.worst_cards %}
+  </section>
+  <section class="panel">
+    <h2>Snelst verkocht</h2>
+    {% include "sales/_sale_speed.html" with rows=d.fastest %}
+  </section>
+  <section class="panel">
+    <h2>Langzaamst verkocht</h2>
+    {% include "sales/_sale_speed.html" with rows=d.slowest %}
+  </section>
+</div>
+
+<section class="panel">
+  <h2>Geld vast in voorraad <span class="muted">— oudste eerst</span></h2>
+  {% if d.oldest_stock %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Kaart</th><th>Status</th><th>Ingekocht</th><th class="num">Dagen</th><th class="num">Inkoop</th></tr></thead>
+    <tbody>{% for c in d.oldest_stock %}
+      <tr><td><a href="{% url 'inventory:card_detail' c.pk %}">{{ c }}</a></td>
+        <td><span class="badge badge-{{ c.status }}">{{ c.get_status_display }}</span></td>
+        <td class="nowrap">{{ c.acquired_on|date:"d-m-Y"|default:"–" }}</td>
+        <td class="num">{{ c.age_days|default_if_none:"–" }}</td>
+        <td class="num">{{ c.cost_total|euro }}</td></tr>
+    {% endfor %}</tbody>
+    <tfoot><tr><th colspan="4">Totaal ({{ d.stock_count }} kaarten)</th><th class="num">{{ d.stock_value|euro }}</th></tr></tfoot>
+  </table></div>
+  {% else %}<p class="muted">Geen onverkochte voorraad.</p>{% endif %}
+</section>
+{% endblock %}

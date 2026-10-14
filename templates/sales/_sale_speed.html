@@ -1,0 +1,10 @@
+{% if rows %}
+<table>
+  <tbody>{% for s in rows %}
+    <tr><td><a href="{% url 'inventory:card_detail' s.listing.card.pk %}">{{ s.listing.card }}</a>
+      <div class="muted small">{{ s.start_date|date:"d-m-Y" }} → {{ s.sold_at|date:"d-m-Y" }}</div></td>
+      <td class="num">{{ s.days_to_sale.days }} dag{{ s.days_to_sale.days|pluralize:"en" }}</td></tr>
+  {% endfor %}</tbody>
+</table>
+<p class="muted small">Gerekend vanaf "te koop sinds", anders vanaf de inkoopdatum.</p>
+{% else %}<p class="muted">Geen verkopen met een start- en verkoopdatum in deze periode.</p>{% endif %}

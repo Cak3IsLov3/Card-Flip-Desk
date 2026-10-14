@@ -27,6 +27,22 @@ CARDS = [
 ]
 
 
+# speler, set, jaar, inkoop, te koop sinds (dagen geleden), verkocht (dagen geleden), prijs, land
+SOLD = [
+    ("Kylian Mbappé", "Topps Chrome UCL", 2023, "4.00", 340, 320, "11.50", "FR"),
+    ("Florian Wirtz", "Topps Chrome UCL", 2023, "2.00", 300, 260, "6.00", "DE"),
+    ("Cole Palmer", "Panini Prizm Premier League", 2023, "3.50", 280, 270, "9.99", "GB"),
+    ("Xavi Simons", "Topps Chrome UCL", 2023, "1.50", 250, 190, "3.49", "NL"),
+    ("Phil Foden", "Panini Prizm Premier League", 2022, "6.00", 220, 150, "5.00", "GB"),
+    ("Jamal Musiala", "Topps Chrome", 2024, "5.00", 160, 120, "14.00", "DE"),
+    ("Pedri", "Topps Chrome", 2024, "2.50", 130, 95, "7.50", "ES"),
+    ("Rodri", "Topps Chrome UCL", 2023, "3.00", 110, 60, "8.25", "ES"),
+    ("Declan Rice", "Panini Prizm Premier League", 2023, "1.00", 80, 45, "4.50", "GB"),
+    ("Vinícius Júnior", "Topps Chrome UCL", 2023, "8.00", 70, 30, "19.99", "BR"),
+    ("Martin Ødegaard", "Panini Prizm Premier League", 2023, "2.00", 40, 12, "6.75", "NO"),
+]
+
+
 class Command(BaseCommand):
     help = "Maakt een demo-gebruiker met voorbeelddata (alleen DEBUG)."
 
@@ -65,4 +81,21 @@ class Command(BaseCommand):
             sale_price=D("4.99"), shipping_income=D("1.95"), shipping_cost=D("1.45"),
             packaging_cost=D("0.25"), sold_at=today - timedelta(days=5), buyer_country="DE",
         )
+
+        # Verkopen verspreid over het afgelopen jaar, voor het dashboard.
+        for player, set_name, year, cost, listed_ago, sold_ago, price, country in SOLD:
+            card = Card.objects.create(
+                owner=user, player=player, sport="Soccer", set_name=set_name, year=year,
+                variant="base", condition="Near Mint", status=CardStatus.FOR_SALE,
+                listed_since=today - timedelta(days=listed_ago),
+            )
+            Purchase.objects.create(
+                card=card, price=D(cost), shipping_in=D("0.50"),
+                date=today - timedelta(days=listed_ago + 7), source="Beurs",
+            )
+            register_sale(
+                card, sale_price=D(price), shipping_income=D("1.95"), shipping_cost=D("1.45"),
+                packaging_cost=D("0.25"), sold_at=today - timedelta(days=sold_ago),
+                buyer_country=country,
+            )
         self.stdout.write(self.style.SUCCESS(f"Demo-account '{DEMO_USERNAME}' klaar."))
