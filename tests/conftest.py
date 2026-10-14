@@ -24,7 +24,7 @@ def isolated_ebay(settings):
     settings.EBAY_CLIENT_ID = ""
     settings.EBAY_CLIENT_SECRET = ""
     settings.EBAY_RUNAME = ""
-    settings.EBAY_MARKETPLACE_ID = "EBAY_NL"
+    settings.EBAY_MARKETPLACE_ID = "EBAY_DE"
     settings.EBAY_CURRENCY = "EUR"
     settings.EBAY_CATEGORY_IDS = ""
     settings.EBAY_DAILY_CALL_BUDGET = 4500

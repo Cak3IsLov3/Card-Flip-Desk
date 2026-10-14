@@ -94,7 +94,7 @@ def test_search_sends_headers_and_caches_with_etag(client, token_route, respx_mo
     assert not result.from_cache
     request = route.calls[0].request
     assert request.headers["Authorization"] == "Bearer app-token-1"
-    assert request.headers["X-EBAY-C-MARKETPLACE-ID"] == "EBAY_NL"
+    assert request.headers["X-EBAY-C-MARKETPLACE-ID"] == "EBAY_DE"
     assert request.url.params["q"] == "2023 Topps Chrome Haaland"
     cached = CachedResponse.objects.get()
     assert cached.etag == '"abc"' and cached.data["total"] == 1

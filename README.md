@@ -430,7 +430,7 @@ development.
 | `EBAY_ENVIRONMENT` | `sandbox` | `sandbox` or `production` |
 | `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET` | empty | From *Application Keys* on developer.ebay.com |
 | `EBAY_RUNAME` | empty | Only for connecting a user account; accept URL = `SITE_URL` + `/ebay/callback/` |
-| `EBAY_MARKETPLACE_ID`, `EBAY_CURRENCY` | `EBAY_NL`, `EUR` | Marketplace and currency for price advice |
+| `EBAY_MARKETPLACE_ID`, `EBAY_CURRENCY` | `EBAY_DE`, `EUR` | Marketplace and currency for price advice |
 | `EBAY_CATEGORY_IDS` | empty | Optional, to narrow the search |
 | `EBAY_DAILY_CALL_BUDGET`, `EBAY_CACHE_SECONDS` | `4500`, `21600` | Budget and cache duration |
 
