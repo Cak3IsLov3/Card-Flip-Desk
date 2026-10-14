@@ -33,11 +33,13 @@ def signup(request):
     if request.method == "POST" and form.is_valid():
         user = form.save()
         # Starter profile so the calculator works right away; rates are editable.
+        # eBay.de, private seller in Germany: domestic sales carry no final value
+        # fee and no per-order fee (shipping abroad yourself adds 5%).
         FeeProfile.objects.create(
             user=user,
             category=DEFAULT_CATEGORY,
-            commission_percentage=Decimal("13.25"),
-            fixed_fee=Decimal("0.35"),
+            commission_percentage=Decimal("0.00"),
+            fixed_fee=Decimal("0.00"),
             payment_percentage=Decimal("0.00"),
         )
         login(request, user)

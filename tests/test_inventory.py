@@ -136,4 +136,6 @@ def test_signup_creates_starter_fee_profile(client, db):
     assert resp.status_code == 302
     from finance.models import FeeProfile
 
-    assert FeeProfile.objects.filter(user__username="carla").count() == 1
+    profile = FeeProfile.objects.get(user__username="carla")
+    # eBay.de private seller: domestic sales are free.
+    assert (profile.commission_percentage, profile.fixed_fee, profile.payment_percentage) == (0, 0, 0)

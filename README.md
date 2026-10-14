@@ -254,7 +254,13 @@ too), pytest-django and respx.
   profits and four fee profiles.
 
 Rates live in `FeeProfile`, per category and with a `valid_from`. The starter
-profile (13.25% + €0.35) is an example; check the current eBay rates.
+profile is for a **private seller on eBay.de**: 0% and €0.00, because domestic
+sales in Germany carry no selling fees. Business sellers add their own profile;
+for Trading Cards that is 11% of the total including shipping (3% on the part
+above €990) plus €0.45 per order (€0.35 up to €10), at an above-standard or
+top-rated service level. Shipping abroad yourself as a private seller costs 5%.
+Check the current rates on ebay.de; the demo account uses 13.25% + €0.35 as an
+example with fees.
 
 ### Dashboard
 
