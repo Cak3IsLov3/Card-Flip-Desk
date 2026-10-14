@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Shipping methods – Card Flip Desk{% endblock %}
+{% block content %}
+<h1>Shipping methods</h1>
+<p class="muted">What sending a card costs you. Choose one in the calculator or when recording a sale to fill in the
+  shipping cost. The starter list holds the Deutsche Post and DHL private customer prices; check the current prices on
+  <a href="https://www.dhl.de/de/privatkunden.html" rel="noopener noreferrer" target="_blank">dhl.de</a>.
+  Past sales keep their own amounts.</p>
+<div class="grid">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Method</th><th class="num">Cost</th><th>Note</th></tr></thead>
+    <tbody>{% for m in methods %}
+      <tr><td><a href="{% url 'finance:shipping_method_edit' m.pk %}">{{ m.name }}</a></td>
+        <td class="num">{{ m.cost|euro }}</td><td class="muted">{{ m.note }}</td></tr>
+    {% empty %}<tr><td colspan="3" class="muted">No shipping methods yet.</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <form method="post" class="panel">{% csrf_token %}
+    <h2>New shipping method</h2>
+    {% include "_form_fields.html" %}
+    <button>Save</button>
+  </form>
+</div>
+{% endblock %}

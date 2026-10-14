@@ -67,3 +67,30 @@ class FeeProfile(models.Model):
             fixed_fee=self.fixed_fee,
             payment_percentage=self.payment_percentage,
         )
+
+
+class ShippingMethod(models.Model):
+    """A way of sending a card and what it costs you, e.g. "Deutsche Post Großbrief".
+
+    Choosing one fills in the shipping cost. Rates change, so they live here
+    and are editable; a sale stores the amount itself, so changing a rate
+    never alters past sales.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="shipping_methods"
+    )
+    name = models.CharField(max_length=80)
+    cost = models.DecimalField(
+        max_digits=8, decimal_places=2, validators=[MinValueValidator(Decimal("0"))]
+    )
+    note = models.CharField(max_length=120, blank=True, help_text="Limits, tracking, insurance …")
+
+    class Meta:
+        ordering = ["cost", "name"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "name"], name="unique_shipping_method_name_per_user"),
+        ]
+
+    def __str__(self):
+        return f"{self.name} (€{self.cost})"

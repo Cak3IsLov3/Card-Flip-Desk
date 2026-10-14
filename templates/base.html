@@ -18,7 +18,8 @@
       <a href="{% url 'inventory:attention' %}">Attention</a>
       <a href="{% url 'sales:sale_list' %}">Sales</a>
       <a href="{% url 'finance:calculator' %}">Calculator</a>
-      <a href="{% url 'finance:fee_profiles' %}">Fee profiles</a>
+      <a href="{% url 'finance:fee_profiles' %}">Fees</a>
+      <a href="{% url 'finance:shipping_methods' %}">Shipping</a>
       <a href="{% url 'ebay:connection' %}">eBay</a>
       <a href="{% url 'api_token' %}">API</a>
       <form method="post" action="{% url 'logout' %}" class="inline">{% csrf_token %}

@@ -19,7 +19,8 @@ when eBay goes down.
 | ![Charts](docs/screenshots/02-dashboard-charts.jpg) **Dashboard:** revenue and profit per month, margin per set, fastest and slowest sellers | ![Inventory](docs/screenshots/03-inventory.jpg) **Inventory:** filters (also by variant), main photo, variants, condition, age with colour and label |
 | ![Card form](docs/screenshots/04-card-form.jpg) **Card form:** several variants per card; the parallel name and serial number appear when Parallel is ticked | ![Photos](docs/screenshots/05-photos.jpg) **Photos:** front and back, main photo, ordering, checklist |
 | ![Listing generator](docs/screenshots/06-listing-generator.jpg) **Listing generator:** title of at most 80 characters with the variants, checks, profit at the asking price | ![Needs attention](docs/screenshots/07-attention.jpg) **Needs attention:** a suggestion per card; a price drop shows the new profit straight away |
-| ![Calculator](docs/screenshots/08-calculator.jpg) **Calculator:** from price to profit and from profit to price | ![API docs](docs/screenshots/09-api-docs.jpg) **REST API:** OpenAPI docs with token authentication |
+| ![Calculator](docs/screenshots/08-calculator.jpg) **Calculator:** from price to profit and from profit to price; a shipping method fills in the shipping cost | ![API docs](docs/screenshots/09-api-docs.jpg) **REST API:** OpenAPI docs with token authentication |
+| ![Shipping methods](docs/screenshots/10-shipping.jpg) **Shipping methods:** Deutsche Post and DHL prices to start with, editable | |
 
 *The card images are generated placeholders from `seed_demo`.*
 
@@ -50,6 +51,7 @@ when eBay goes down.
 | **Listing generator** | Templates with placeholders, length check, photo checklist, copy buttons and profit at the asking price. |
 | **Stale inventory** | Per-user thresholds (30/60/90), colour coding, "Needs attention" with a suggestion per card, pinning, weekly email. |
 | **Price advice** | Active eBay listings (Browse API) next to your own sales history: minimum, median, maximum and a suggested price. |
+| **Shipping** | Shipping methods with their cost (Deutsche Post and DHL to start with). Choosing one in the calculator or a sale fills in the shipping cost. |
 | **REST API** | DRF with token authentication, own data only, OpenAPI docs. |
 
 ## Quick start
@@ -259,8 +261,35 @@ sales in Germany carry no selling fees. Business sellers add their own profile;
 for Trading Cards that is 11% of the total including shipping (3% on the part
 above €990) plus €0.45 per order (€0.35 up to €10), at an above-standard or
 top-rated service level. Shipping abroad yourself as a private seller costs 5%.
-Check the current rates on ebay.de; the demo account uses 13.25% + €0.35 as an
-example with fees.
+Check the current rates on ebay.de. The demo account uses the same starter
+profile.
+
+### Shipping costs
+
+- **Shipping methods** (*Shipping* in the menu) hold what sending costs you. New
+  accounts start with the Deutsche Post and DHL private customer prices from
+  [dhl.de](https://www.dhl.de/de/privatkunden.html) and deutschepost.de:
+
+  | Method | Cost | Limits |
+  |---|---|---|
+  | Deutsche Post Standardbrief | €0.95 | 20 g, 0.5 cm |
+  | Deutsche Post Kompaktbrief | €1.10 | 50 g, 1 cm |
+  | Deutsche Post Großbrief | €1.80 | 500 g, 2 cm |
+  | Deutsche Post Warensendung | €2.70 | 1 kg, 5 cm |
+  | Deutsche Post Maxibrief | €2.90 | 1 kg, 5 cm |
+  | Großbrief + Einschreiben Einwurf | €4.15 | Großbrief with tracking |
+  | DHL Päckchen S | €4.19 | 2 kg, 35 × 25 × 10 cm |
+  | DHL Päckchen M | €5.19 | 2 kg, 60 × 30 × 15 cm |
+  | DHL Paket 2 kg | €6.19 | online only, tracking, liability up to €500 |
+  | DHL Paket 5 kg | €7.69 | tracking, liability up to €500 |
+
+  Letters and Päckchen have no tracking. For valuable cards an Einschreiben or a
+  Paket protects you when a buyer says nothing arrived.
+- **Choosing a method** in the calculator or when recording a sale fills in the
+  shipping cost; you can still change it. Without JavaScript the server fills
+  it in when the cost is left at 0.
+- **A sale stores the amount**, not the method, so a later price change never
+  alters past sales. Prices change: edit them on the *Shipping* page.
 
 ### Dashboard
 
@@ -461,7 +490,7 @@ development.
   the healthchecks, fetches `/health/`, the login page and a static file, and
   runs `check --deploy`.
 
-279 tests, without a network (eBay is mocked with respx), in about a minute
+294 tests, without a network (eBay is mocked with respx), in about a minute
 and a half. A selection:
 
 - **Calculator:** known examples with exact `Decimal`s, rounding boundaries
@@ -472,6 +501,10 @@ and a half. A selection:
   files removed when a card is deleted, another user gets a 404.
 - **CSV import:** bad rows reported with the right line number, the rest goes
   through; several variants per cell, condition abbreviations and serial numbers.
+- **Shipping:** the starter list on sign-up and for existing accounts
+  (migration), a method filling in the cost, a typed cost winning, a sale
+  keeping its amount after a price change, and another user's methods neither
+  visible nor selectable.
 - **Card details:** variant order and duplicates, names cleared when a variant is
   unticked, serial number validation, remembered players, sports, sets and
   parallel/insert names (own cards only), the variant filter, and the title and search

@@ -5,8 +5,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from inventory.models import Card
 
 from .calculator import CostInput, calculate, required_price
-from .forms import CalculatorForm, FeeProfileForm
-from .models import FeeProfile
+from .forms import CalculatorForm, FeeProfileForm, ShippingMethodForm
+from .models import FeeProfile, ShippingMethod
 
 
 @login_required
@@ -70,3 +70,35 @@ def fee_profile_edit(request, pk):
             messages.success(request, "Fee profile updated.")
             return redirect("finance:fee_profiles")
     return render(request, "finance/fee_profile_edit.html", {"form": form, "profile": profile})
+
+
+@login_required
+def shipping_method_list(request):
+    form = ShippingMethodForm(request.POST or None, user=request.user)
+    if request.method == "POST" and form.is_valid():
+        method = form.save(commit=False)
+        method.user = request.user
+        method.save()
+        messages.success(request, f"Shipping method saved: {method}")
+        return redirect("finance:shipping_methods")
+    return render(
+        request,
+        "finance/shipping_methods.html",
+        {"form": form, "methods": ShippingMethod.objects.filter(user=request.user)},
+    )
+
+
+@login_required
+def shipping_method_edit(request, pk):
+    method = get_object_or_404(ShippingMethod, pk=pk, user=request.user)
+    form = ShippingMethodForm(request.POST or None, instance=method, user=request.user)
+    if request.method == "POST":
+        if "delete" in request.POST:
+            method.delete()
+            messages.success(request, "Shipping method deleted.")
+            return redirect("finance:shipping_methods")
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Shipping method updated.")
+            return redirect("finance:shipping_methods")
+    return render(request, "finance/shipping_method_edit.html", {"form": form, "method": method})

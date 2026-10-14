@@ -2,8 +2,8 @@ from django import forms
 from django.utils import timezone
 
 from finance.calculator import ZERO
-from finance.forms import money_field
-from finance.models import FeeProfile
+from finance.forms import apply_shipping_method, money_field, shipping_method_field
+from finance.models import FeeProfile, ShippingMethod
 
 from .listing_generator import PLACEHOLDERS, TITLE_MAX_LENGTH, unknown_placeholders
 from .models import ListingTemplate
@@ -12,6 +12,7 @@ from .models import ListingTemplate
 class SaleForm(forms.Form):
     sale_price = money_field("Sale price", required=True)
     shipping_income = money_field("Shipping charged")
+    shipping_method = forms.ModelChoiceField(queryset=ShippingMethod.objects.none(), required=False)
     shipping_cost = money_field("Shipping cost")
     packaging_cost = money_field("Packaging cost")
     sold_at = forms.DateField(
@@ -25,6 +26,7 @@ class SaleForm(forms.Form):
     def __init__(self, user, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["sold_at"].initial = timezone.localdate()
+        self.fields["shipping_method"] = shipping_method_field(user)
         categories = (
             FeeProfile.objects.filter(user=user)
             .order_by("category")
@@ -38,6 +40,7 @@ class SaleForm(forms.Form):
         for name in ("shipping_income", "shipping_cost", "packaging_cost"):
             if cleaned.get(name) is None:
                 cleaned[name] = ZERO
+        apply_shipping_method(cleaned)
         return cleaned
 
 

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Edit shipping method – Card Flip Desk{% endblock %}
+{% block content %}
+<h1>{{ method.name }}</h1>
+<form method="post" class="panel narrow">{% csrf_token %}
+  {% include "_form_fields.html" %}
+  <div class="actions">
+    <button>Save</button>
+    <button class="danger" name="delete" value="1" formnovalidate>Delete</button>
+    <a href="{% url 'finance:shipping_methods' %}">Back</a>
+  </div>
+</form>
+{% endblock %}

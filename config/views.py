@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 from django.contrib.auth import login
 from django.contrib.auth.forms import UserCreationForm
 from django.db import connection
@@ -8,7 +6,7 @@ from django.shortcuts import redirect, render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 
-from finance.models import DEFAULT_CATEGORY, FeeProfile
+from finance.starter import create_starter_costs
 
 
 @never_cache
@@ -32,16 +30,8 @@ def signup(request):
     form = UserCreationForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         user = form.save()
-        # Starter profile so the calculator works right away; rates are editable.
-        # eBay.de, private seller in Germany: domestic sales carry no final value
-        # fee and no per-order fee (shipping abroad yourself adds 5%).
-        FeeProfile.objects.create(
-            user=user,
-            category=DEFAULT_CATEGORY,
-            commission_percentage=Decimal("0.00"),
-            fixed_fee=Decimal("0.00"),
-            payment_percentage=Decimal("0.00"),
-        )
+        # Starter fee profile and shipping methods, so the calculator works right away.
+        create_starter_costs(user)
         login(request, user)
         return redirect("inventory:card_list")
     return render(request, "registration/signup.html", {"form": form})

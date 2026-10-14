@@ -6,6 +6,7 @@ import pytest
 from django.core import mail
 from django.core.management import call_command
 from django.urls import reverse
+from django.utils import timezone
 
 from inventory import aging
 from inventory.digest import send_digests
@@ -60,7 +61,8 @@ def test_age_start_rules(user, make_card):
     assert starts["listed"] == days_ago(10)
     assert starts["stock"] == days_ago(50)  # first purchase
     assert starts["nodate"] == date(2024, 5, 1)
-    assert starts["empty"] == no_purchase.created_at.date()
+    # The local date (Europe/Amsterdam), not the UTC one: they differ just after midnight.
+    assert starts["empty"] == timezone.localdate(no_purchase.created_at)
 
 
 # --- which cards appear --------------------------------------------------------

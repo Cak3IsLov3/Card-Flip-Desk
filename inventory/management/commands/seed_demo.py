@@ -13,12 +13,13 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management.base import BaseCommand, CommandError
 from PIL import Image, ImageDraw, ImageFont
 
-from finance.models import DEFAULT_CATEGORY, FeeProfile
+from finance.starter import create_starter_costs
 from inventory import photos
 from inventory.models import Card, CardStatus, PhotoLabel, Purchase
 from sales.models import Listing, ListingStatus
 from sales.services import register_sale
 
+KOMPAKTBRIEF = D("1.10")  # a card in a toploader, Deutsche Post
 DEMO_USERNAME = "demo"
 DEMO_PASSWORD = "demo-cards-2026"  # local only; never use in production
 
@@ -93,14 +94,10 @@ class Command(BaseCommand):
         if not created:
             user.cards.all().delete()
             user.fee_profiles.all().delete()
+            user.shipping_methods.all().delete()
 
-        FeeProfile.objects.create(
-            user=user,
-            category=DEFAULT_CATEGORY,
-            commission_percentage=D("13.25"),
-            fixed_fee=D("0.35"),
-            valid_from=date(2024, 1, 1),
-        )
+        # Same as a new account: private seller on eBay.de with DHL/Deutsche Post rates.
+        create_starter_costs(user, valid_from=date(2024, 1, 1))
         today = date.today()
         for i, (player, sport, set_name, year, nr, variants, cond, cost) in enumerate(CARDS):
             card = Card.objects.create(
@@ -137,7 +134,7 @@ class Command(BaseCommand):
 
         register_sale(
             Card.objects.get(owner=user, player="Bukayo Saka"),
-            sale_price=D("4.99"), shipping_income=D("1.95"), shipping_cost=D("1.45"),
+            sale_price=D("4.99"), shipping_income=D("1.95"), shipping_cost=KOMPAKTBRIEF,
             packaging_cost=D("0.25"), sold_at=today - timedelta(days=5), buyer_country="DE",
         )
 
@@ -153,7 +150,7 @@ class Command(BaseCommand):
                 date=today - timedelta(days=listed_ago + 7), source="Card show",
             )
             register_sale(
-                card, sale_price=D(price), shipping_income=D("1.95"), shipping_cost=D("1.45"),
+                card, sale_price=D(price), shipping_income=D("1.95"), shipping_cost=KOMPAKTBRIEF,
                 packaging_cost=D("0.25"), sold_at=today - timedelta(days=sold_ago),
                 buyer_country=country,
             )
