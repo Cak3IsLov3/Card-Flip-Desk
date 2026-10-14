@@ -111,3 +111,6 @@ code { font-size: .85em; background: var(--bg); padding: .05rem .3rem; border-ra
 .field > div:has(input[type=checkbox]) label { font-weight: 400; display: inline-flex; gap: .35rem; align-items: center; }
 .field .helptext, .field small.help { color: var(--muted); font-size: .85rem; }
 .field[hidden] { display: none; }
+
+/* A panel straight after a table, e.g. the options below the Seller Hub review. */
+.table-wrap + .panel { margin-top: 16px; }

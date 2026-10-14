@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Map columns – Seller Hub import – Card Flip Desk{% endblock %}
+{% block content %}
+<h1>Map columns</h1>
+{% if error %}<div class="msg msg-error">{{ error }} <a href="{% url 'sales:seller_hub_map' %}">Map the columns again</a>.</div>
+{% else %}
+<p class="muted">Known Seller Hub column names (German and English) are filled in. Check them; * is required.</p>
+<section class="panel">
+  <h2>Preview</h2>
+  <pre class="preview">{% for line in preview %}{{ line }}
+{% endfor %}</pre>
+</section>
+<form method="post" class="panel">{% csrf_token %}
+  <div class="grid">{% include "_form_fields.html" %}</div>
+  <button>Next: check the sales</button>
+  <a href="{% url 'sales:seller_hub_upload' %}">Different file</a>
+</form>
+{% endif %}
+{% endblock %}

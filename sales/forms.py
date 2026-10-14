@@ -4,6 +4,7 @@ from django.utils import timezone
 from finance.calculator import ZERO
 from finance.forms import apply_shipping_method, money_field, shipping_method_field
 from finance.models import FeeProfile, ShippingMethod
+from inventory.forms import CsvUploadForm
 
 from .listing_generator import PLACEHOLDERS, TITLE_MAX_LENGTH, unknown_placeholders
 from .models import ListingTemplate
@@ -38,6 +39,49 @@ class SaleForm(forms.Form):
     def clean(self):
         cleaned = super().clean()
         for name in ("shipping_income", "shipping_cost", "packaging_cost"):
+            if cleaned.get(name) is None:
+                cleaned[name] = ZERO
+        apply_shipping_method(cleaned)
+        return cleaned
+
+
+class SellerHubUploadForm(CsvUploadForm):
+    """The orders report from Seller Hub: Orders → Download report (CSV)."""
+
+
+class SellerHubMappingForm(forms.Form):
+    """One choice per import field; the choices are the columns of the export."""
+
+    def __init__(self, headers, *args, **kwargs):
+        from .seller_hub import IMPORT_FIELDS, REQUIRED_FIELDS
+
+        super().__init__(*args, **kwargs)
+        choices = [("", "— not in the file —")] + [(h, h) for h in headers]
+        for name, label in IMPORT_FIELDS.items():
+            self.fields[name] = forms.ChoiceField(
+                label=label + (" *" if name in REQUIRED_FIELDS else ""),
+                choices=choices,
+                required=name in REQUIRED_FIELDS,
+            )
+
+    def mapping(self):
+        return {k: v for k, v in self.cleaned_data.items() if v}
+
+
+class SellerHubOptionsForm(forms.Form):
+    """Costs that are not in the export and apply to every imported sale."""
+
+    shipping_method = forms.ModelChoiceField(queryset=ShippingMethod.objects.none(), required=False)
+    shipping_cost = money_field("Shipping cost per sale")
+    packaging_cost = money_field("Packaging cost per sale")
+
+    def __init__(self, user, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["shipping_method"] = shipping_method_field(user)
+
+    def clean(self):
+        cleaned = super().clean()
+        for name in ("shipping_cost", "packaging_cost"):
             if cleaned.get(name) is None:
                 cleaned[name] = ZERO
         apply_shipping_method(cleaned)

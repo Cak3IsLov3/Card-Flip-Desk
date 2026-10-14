@@ -5,6 +5,8 @@
 {% block content %}
 <h1>Create listing</h1>
 <p><a href="{% url 'inventory:card_detail' card.pk %}">← {{ card }}</a></p>
+<p class="small">Custom label (SKU) for eBay: <code>{{ sku }}</code>
+  <span class="muted">— the Seller Hub import uses it to find this card.</span></p>
 
 <div class="filters">
   <div class="field">

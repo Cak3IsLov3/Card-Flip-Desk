@@ -47,6 +47,7 @@ when eBay goes down.
 | **Inventory** | Cards with purchases, filters and search (HTMX), inventory value, counts per set. Several variants per card (Rookie, Auto, Parallel, Insert) with the parallel name and serial number (23/50) or insert name, and a condition from a fixed list. Players, sports, sets and parallel/insert names you used before are suggested. CSV import with column mapping; bad rows end up in a report without blocking the rest. |
 | **Calculator** | Commission, payment fees, net, profit and margin. Also in reverse: "I want €X profit" gives the lowest asking price. Rates live in fee profiles, not in the code. |
 | **Photos** | 1–6 per card, with a main photo and ordering. Resized, thumbnailed, EXIF removed, and only visible to the owner. |
+| **Seller Hub import** | Import sales from an eBay Seller Hub orders export (CSV, German or English). You check the columns and the card per sale; suggestions come from the eBay item number, the custom label (SKU) or the title. Importing a file twice never creates double sales. |
 | **Sales and dashboard** | Fees recorded at the rate that applied on the sale date. Profit per card, set and month, weighted margin, days to sale, and money tied up in stock. |
 | **Listing generator** | Templates with placeholders, length check, photo checklist, copy buttons and profit at the asking price. |
 | **Stale inventory** | Per-user thresholds (30/60/90), colour coding, "Needs attention" with a suggestion per card, pinning, weekly email. |
@@ -263,6 +264,38 @@ above €990) plus €0.45 per order (€0.35 up to €10), at an above-standard
 top-rated service level. Shipping abroad yourself as a private seller costs 5%.
 Check the current rates on ebay.de. The demo account uses the same starter
 profile.
+
+### Seller Hub import
+
+*Sales → Import from Seller Hub.* Download the orders report on eBay
+(*Seller Hub → Bestellungen → Bericht herunterladen*, CSV) and upload it.
+
+1. **Reading the file:** lines of text above the header are skipped, the
+   delimiter (`;` or `,`) and the encoding (UTF-8 or Windows-1252) are
+   detected, and summary lines and order total lines are ignored.
+2. **Columns:** known German and English column names are mapped for you
+   (*Bestellnummer*, *Artikelbezeichnung*, *Verkaufspreis*, *Verkauft am* …);
+   you can change the mapping.
+3. **Check:** for every sale the app suggests a card from your unsold stock, by
+   the eBay item number of a listing, by the custom label (SKU), or by the
+   title (the player's surname must be in it). Each card is suggested once.
+   Rows with a problem are shown and not imported: an amount in another
+   currency, an unknown date, or a quantity above 1 (one sale is one card).
+4. **Import:** fees come from your fee profile for the sale date, like a manual
+   sale. Shipping and packaging costs are not in the export, so you set them
+   once for the whole import (a shipping method fills in the cost).
+
+**Custom label (SKU):** the listing generator shows `CFD-<id>` for each card.
+Put it in the eBay listing's *Custom label* field and the import finds the
+card by itself.
+
+**Twice is safe:** every sale remembers its order line (order number and item
+number). Order lines that were imported before are shown as such and are never
+imported again, even with a forged form.
+
+Dates such as `14.10.2026`, `14. Okt. 2026`, `Okt 14, 2026`, `Oct-14-26` and
+`2026-10-14T18:03:11Z` are read. The amount reader (`finance/amounts.py`) is
+shared with the price advice: `12,50`, `1.234,56`, `EUR 12,50` and `12.50`.
 
 ### Shipping costs
 
@@ -499,7 +532,7 @@ development.
   the healthchecks, fetches `/health/`, the login page and a static file, and
   runs `check --deploy`.
 
-310 tests, without a network (eBay is mocked with respx), in about a minute
+339 tests, without a network (eBay is mocked with respx), in about a minute
 and a half. A selection:
 
 - **Calculator:** known examples with exact `Decimal`s, rounding boundaries
@@ -514,6 +547,11 @@ and a half. A selection:
   (migration), a method filling in the cost, a typed cost winning, a sale
   keeping its amount after a price change, and another user's methods neither
   visible nor selectable.
+- **Seller Hub import:** a German export with text above the header,
+  semicolons and Windows-1252, the suggested mapping, date and country
+  formats, problems per row, suggestions by item number, SKU and title, the
+  whole upload → map → check → import flow, importing a file twice, and
+  another user's card never being chosen.
 - **Sold prices:** German and English notation, thousands separators, ignored
   text, limits, the sold items link per marketplace, the order of the
   suggested price, and no eBay call when you paste prices.
@@ -536,8 +574,9 @@ and a half. A selection:
 
 ## Known limitations and next steps
 
-- **Seller Hub import of sales** is still missing. It needs a real export to
-  base the column format on.
+- **Seller Hub import** knows common German and English column names but has
+  not been tried on a real export yet. The column mapping step covers names
+  it does not know.
 - **Bundling** and **writing off** are suggested, but there is no action yet
   that carries them out.
 - **Profit on a price drop and in the price advice** is calculated without

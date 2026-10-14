@@ -3,6 +3,7 @@
 {% block title %}Sales – Card Flip Desk{% endblock %}
 {% block content %}
 <h1>Sales</h1>
+<p><a class="button secondary" href="{% url 'sales:seller_hub_upload' %}">Import from Seller Hub</a></p>
 
 {% if months %}
 <h2>Per month</h2>

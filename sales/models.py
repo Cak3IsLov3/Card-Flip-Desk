@@ -165,6 +165,8 @@ class Sale(models.Model):
     packaging_cost = models.DecimalField(default=ZERO, **MONEY)
     sold_at = models.DateField("sold on")
     buyer_country = models.CharField(max_length=2, blank=True)
+    # Set by the Seller Hub import ("order number:item number"), so a file can be imported twice safely.
+    ebay_order_ref = models.CharField("eBay order line", max_length=120, blank=True, db_index=True)
 
     objects = SaleQuerySet.as_manager()
 

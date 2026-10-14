@@ -14,6 +14,7 @@ from inventory.models import Card, CardStatus
 from . import listing_generator as gen
 from .forms import ListingDraftForm, ListingTemplateForm
 from .models import Listing, ListingStatus, ListingTemplate
+from .seller_hub import sku_for
 from .services import NoFeeProfile, fees_for
 
 DEFAULT_TEMPLATE = "default"
@@ -79,6 +80,7 @@ def listing_generator(request, card_pk):
 
     context = {
         "card": card,
+        "sku": sku_for(card),
         "listing": listing,
         "form": form,
         "generated": generated,

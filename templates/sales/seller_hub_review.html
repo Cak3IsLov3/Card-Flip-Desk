@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load money static %}
+{% block title %}Check sales – Seller Hub import – Card Flip Desk{% endblock %}
+{% block head %}<script src="{% static 'shipping.js' %}" defer></script>{% endblock %}
+{% block content %}
+<h1>Check the sales</h1>
+<p class="muted">Choose the card for each sale. Suggestions come from the eBay item number, the custom label (SKU) or the
+  title; check them. Rows set to "Do not import" are skipped. Fees are calculated with your fee profile for the sale date.</p>
+<form method="post">{% csrf_token %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Line</th><th>Date</th><th>eBay title</th><th class="num">Price</th><th class="num">Shipping</th>
+      <th>Country</th><th>Card</th></tr></thead>
+    <tbody>{% for row, suggestion in table %}
+      <tr>
+        <td class="small muted">{{ row.line }}</td>
+        <td class="nowrap">{{ row.sold_at|date:"d-m-Y"|default:"–" }}</td>
+        <td>{{ row.title }}<div class="small muted">Order {{ row.order_number }}{% if row.item_id %} · item {{ row.item_id }}{% endif %}{% if row.custom_label %} · SKU {{ row.custom_label }}{% endif %}</div></td>
+        <td class="num">{% if row.sale_price is not None %}{{ row.sale_price|euro }}{% else %}–{% endif %}</td>
+        <td class="num">{{ row.shipping_income|euro }}</td>
+        <td>{{ row.buyer_country|default:"–" }}</td>
+        <td>
+          {% if row.already_imported %}<span class="muted small">Imported before</span>
+          {% elif row.errors %}<span class="bad small">{{ row.errors|join:" " }}</span>
+          {% else %}
+            <select name="card_{{ row.line }}" aria-label="Card for line {{ row.line }}">
+              <option value="">Do not import</option>
+              {% for card in cards %}<option value="{{ card.pk }}"{% if suggestion and suggestion.card.pk == card.pk %} selected{% endif %}>{{ card }}</option>{% endfor %}
+            </select>
+            {% if suggestion %}<div class="small muted">Suggested by {{ suggestion.reason }}</div>{% endif %}
+          {% endif %}
+        </td>
+      </tr>
+    {% empty %}<tr><td colspan="7" class="muted">No sales found in this file.</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% if importable %}
+  <section class="panel narrow">
+    <h2>Costs not in the export</h2>
+    {% with form=options %}{% include "_form_fields.html" %}{% endwith %}
+    <div class="actions"><button>Import the chosen sales</button>
+      <a href="{% url 'sales:seller_hub_map' %}">Back to the columns</a></div>
+  </section>
+  {% endif %}
+</form>
+{% endblock %}

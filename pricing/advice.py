@@ -19,6 +19,7 @@ from urllib.parse import urlencode, urlparse
 from django.conf import settings
 
 from ebay.client import EbayClient, EbayError, EbayNotConfigured, EbayRateLimited, EbayUnavailable
+from finance.amounts import parse_amount
 from finance.calculator import CENT, CostInput, calculate
 from finance.models import DEFAULT_CATEGORY
 from inventory.models import Card, Variant, normalise_variants
@@ -132,25 +133,9 @@ def sold_search_url(query: str) -> str:
     return f"https://{site}/sch/i.html?" + urlencode({"_nkw": query, "LH_Sold": "1", "LH_Complete": "1"})
 
 
-_PRICE_TOKEN = re.compile(r"^\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?$|^\d+(?:[.,]\d{1,2})?$")
-
-
 def _parse_price(token: str) -> Decimal | None:
-    """One amount in German or English notation: 12,50 · 12.50 · 1.234,56 · 1,234.56 · 15."""
-    if not _PRICE_TOKEN.match(token):
-        return None
-    last = max(token.rfind(","), token.rfind("."))
-    # A separator followed by exactly 1 or 2 digits is the decimal point; others group thousands.
-    if last != -1 and len(token) - last - 1 in (1, 2):
-        whole, cents = token[:last], token[last + 1:]
-    else:
-        whole, cents = token, ""
-    whole = whole.replace(",", "").replace(".", "")
-    try:
-        value = Decimal(f"{whole}.{cents or '0'}").quantize(CENT)
-    except InvalidOperation:
-        return None
-    return value if 0 < value < MAX_PRICE else None
+    value = parse_amount(token)
+    return value if value is not None and 0 < value < MAX_PRICE else None
 
 
 def parse_sold_prices(text: str) -> SoldPrices:
