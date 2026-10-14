@@ -20,7 +20,9 @@ def _own_unsold_card(request, pk):
 def _next_url(request):
     """Only redirect back to our own site (no open redirect)."""
     url = request.POST.get("next", "")
-    if url and url_has_allowed_host_and_scheme(url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+    if url and url_has_allowed_host_and_scheme(
+        url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
         return url
     return "inventory:attention"
 

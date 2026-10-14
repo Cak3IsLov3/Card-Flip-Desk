@@ -130,7 +130,10 @@ def parse_items(data: dict, card: Card) -> ActiveListings:
     return result
 
 
-LINK_DOMAINS = ("ebay.com", "ebay.nl", "ebay.be", "ebay.de", "ebay.fr", "ebay.it", "ebay.es", "ebay.co.uk", "ebay.at", "ebay.ie")
+LINK_DOMAINS = (
+    "ebay.com", "ebay.nl", "ebay.be", "ebay.de", "ebay.fr",
+    "ebay.it", "ebay.es", "ebay.co.uk", "ebay.at", "ebay.ie",
+)
 IMAGE_DOMAINS = ("ebayimg.com",)
 
 
@@ -156,7 +159,9 @@ def fetch_active(card: Card, query: str, client: EbayClient | None = None) -> Ac
     except EbayRateLimited as exc:
         return ActiveListings(error=f"{exc} Use your own history for now.")
     except EbayUnavailable as exc:
-        return ActiveListings(error=f"eBay is unreachable right now ({exc}). Use your own history or enter a price manually.")
+        return ActiveListings(
+            error=f"eBay is unreachable right now ({exc}). Use your own history or enter a price manually."
+        )
     except EbayError as exc:
         return ActiveListings(error=f"eBay returned an error: {exc}")
     active = parse_items(result.data, card)

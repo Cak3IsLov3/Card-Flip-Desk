@@ -1,5 +1,7 @@
 # Card Flip Desk
 
+[![CI](https://github.com/Cak3IsLov3/Card-Flip-Desk/actions/workflows/ci.yml/badge.svg)](https://github.com/Cak3IsLov3/Card-Flip-Desk/actions/workflows/ci.yml)
+
 A Django app that tracks the full sales cycle of sports cards, from purchase
 to sale on eBay, and works out what is really left after all fees. It also
 helps with pricing, photos, writing listings and warning you about stock that
@@ -51,15 +53,18 @@ when eBay goes down.
 
 ## Quick start
 
-Requires Python 3.12+ (developed on 3.14).
+Requires Python 3.12+ (developed on 3.14; CI runs 3.12 and 3.14).
 
 ```bash
 python -m venv .venv
-.venv\Scripts\pip install -r requirements.txt     # macOS/Linux: .venv/bin/pip
+.venv\Scripts\pip install -r requirements-dev.txt  # macOS/Linux: .venv/bin/pip
 .venv\Scripts\python manage.py migrate
 .venv\Scripts\python manage.py seed_demo          # demo account with cards, sales and photos
 .venv\Scripts\python manage.py runserver
 ```
+
+`requirements.txt` holds what the app needs to run; `requirements-dev.txt` adds the
+test and lint tools.
 
 Open <http://localhost:8000>. The demo account's login details are in
 [`seed_demo.py`](inventory/management/commands/seed_demo.py); the command
@@ -361,7 +366,18 @@ development.
 
 ```bash
 .venv\Scripts\python -m pytest
+.venv\Scripts\ruff check .
 ```
+
+**GitHub Actions** ([`ci.yml`](.github/workflows/ci.yml)) runs on every push to
+`main` and on every pull request:
+
+- **Lint:** Ruff with pyflakes, pycodestyle, import sorting, bugbear,
+  pyupgrade, Django and bandit (security) rules. The configuration is in
+  [`pyproject.toml`](pyproject.toml).
+- **Tests:** on Python 3.12 and 3.14, `manage.py check`, a check that no
+  migrations are missing, OpenAPI schema validation (warnings fail the build)
+  and the full pytest suite.
 
 243 tests, without a network (eBay is mocked with respx), in about a minute
 and a half. A selection:
@@ -399,4 +415,4 @@ and a half. A selection:
 - **API tokens** (DRF authtoken) are stored unencrypted in the database.
   Treat them like passwords; you can revoke them in the app.
 - **Optional extensions** from the plan: a grading ROI calculator, an export
-  for tax returns, Docker Compose and GitHub Actions.
+  for tax returns and Docker Compose.

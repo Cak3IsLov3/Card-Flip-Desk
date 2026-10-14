@@ -160,7 +160,7 @@ def test_add_photos_stores_random_names_and_first_is_main(user, make_card):
 def test_photos_have_no_public_url(user, make_card):
     photo = svc.add_photos(make_card(user), [upload(image_bytes())])[0]
     with pytest.raises(ValueError):
-        photo.image.url
+        _ = photo.image.url
 
 
 def test_limit_of_six_photos(user, make_card, settings):

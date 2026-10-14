@@ -37,7 +37,7 @@ HOSTS = {
     "production": {"api": "https://api.ebay.com", "auth": "https://auth.ebay.com"},
 }
 APP_SCOPE = "https://api.ebay.com/oauth/api_scope"
-TOKEN_PATH = "/identity/v1/oauth2/token"
+TOKEN_PATH = "/identity/v1/oauth2/token"  # noqa: S105  (a URL path, not a secret)
 SEARCH_PATH = "/buy/browse/v1/item_summary/search"
 TOKEN_MARGIN_SECONDS = 300  # renew a token five minutes before it expires
 
@@ -192,7 +192,7 @@ class EbayClient:
 
     def _backoff(self, attempt: int) -> float:
         # 0.5 s, 1 s, 2 s, ... with some jitter so retries do not line up
-        return self.backoff_seconds * (2**attempt) * random.uniform(0.8, 1.2)
+        return self.backoff_seconds * (2**attempt) * random.uniform(0.8, 1.2)  # noqa: S311  (jitter, not crypto)
 
     # --- GET with cache and ETag -------------------------------------------
 

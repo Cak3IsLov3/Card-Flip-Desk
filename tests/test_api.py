@@ -1,5 +1,4 @@
 import io
-from datetime import date
 from decimal import Decimal as D
 
 import pytest
@@ -10,7 +9,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
 from inventory.models import Card, CardPhoto, CardStatus, PhotoLabel, Purchase
-from sales.models import Listing, ListingStatus, Sale
+from sales.models import Listing, Sale
 from tests.test_photos import gps_exif, image_bytes, upload
 
 pytestmark = pytest.mark.django_db

@@ -49,11 +49,11 @@ def test_level_boundaries(age, expected):
 
 
 def test_age_start_rules(user, make_card):
-    listed = make_card(user, cost="1", status=CardStatus.FOR_SALE, listed_since=days_ago(10), player="listed")
+    make_card(user, cost="1", status=CardStatus.FOR_SALE, listed_since=days_ago(10), player="listed")
     in_stock = make_card(user, player="stock")
     Purchase.objects.create(card=in_stock, price=D("1"), date=days_ago(50))
     Purchase.objects.create(card=in_stock, price=D("1"), date=days_ago(40))
-    for_sale_no_date = make_card(user, cost="1", status=CardStatus.FOR_SALE, player="nodate")  # bought 2024-05-01
+    make_card(user, cost="1", status=CardStatus.FOR_SALE, player="nodate")  # bought 2024-05-01
     no_purchase = make_card(user, player="empty")
 
     starts = {c.player: c.age_start for c in Card.objects.with_age_start()}
