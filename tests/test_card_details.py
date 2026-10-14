@@ -116,16 +116,18 @@ def test_card_form_suggests_only_own_earlier_names(user, other_user, make_card, 
     assert "Secret" not in html
 
 
-def test_card_form_suggests_earlier_players_and_sets(user, other_user, make_card, client_for):
-    make_card(user, player="Lamine Yamal", set_name="Topps Chrome")
-    make_card(user, player="Lamine Yamal", set_name="Panini Prizm")
-    make_card(user, player="Jude Bellingham", set_name="Panini Prizm")
-    make_card(other_user, player="Hidden Player", set_name="Hidden Set")
+def test_card_form_suggests_earlier_players_sports_and_sets(user, other_user, make_card, client_for):
+    make_card(user, player="Lamine Yamal", set_name="Topps Chrome", sport="Football")
+    make_card(user, player="Lamine Yamal", set_name="Panini Prizm", sport="Football")
+    make_card(user, player="Jude Bellingham", set_name="Panini Prizm", sport="Basketball")
+    make_card(other_user, player="Hidden Player", set_name="Hidden Set", sport="Hidden Sport")
     html = client_for(user).get(reverse("inventory:card_create")).content.decode()
     assert ('<datalist id="id_player-suggestions"><option value="Lamine Yamal">'
             '<option value="Jude Bellingham"></datalist>') in html
     assert ('<datalist id="id_set_name-suggestions"><option value="Panini Prizm">'
             '<option value="Topps Chrome"></datalist>') in html
+    assert ('<datalist id="id_sport-suggestions"><option value="Football">'
+            '<option value="Basketball"></datalist>') in html
     assert "Hidden" not in html
 
 

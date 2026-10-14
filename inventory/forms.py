@@ -62,6 +62,7 @@ class CardForm(forms.ModelForm):
         }
         widgets = {
             "player": SuggestionInput,
+            "sport": SuggestionInput,
             "set_name": SuggestionInput,
             "listed_since": DateInput,
             "held_until": DateInput,
@@ -80,7 +81,7 @@ class CardForm(forms.ModelForm):
         if user is not None:
             # Remember names: suggest the ones this user typed before.
             own_cards = Card.objects.owned_by(user)
-            for field in ("player", "set_name", "parallel_name", "insert_name"):
+            for field in ("player", "sport", "set_name", "parallel_name", "insert_name"):
                 self.fields[field].widget.suggestions = own_cards.used_names(field)
 
     def clean(self):

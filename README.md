@@ -43,7 +43,7 @@ when eBay goes down.
 
 | | |
 |---|---|
-| **Inventory** | Cards with purchases, filters and search (HTMX), inventory value, counts per set. Several variants per card (Rookie, Auto, Parallel, Insert) with the parallel name and serial number (23/50) or insert name, and a condition from a fixed list. Players, sets and parallel/insert names you used before are suggested. CSV import with column mapping; bad rows end up in a report without blocking the rest. |
+| **Inventory** | Cards with purchases, filters and search (HTMX), inventory value, counts per set. Several variants per card (Rookie, Auto, Parallel, Insert) with the parallel name and serial number (23/50) or insert name, and a condition from a fixed list. Players, sports, sets and parallel/insert names you used before are suggested. CSV import with column mapping; bad rows end up in a report without blocking the rest. |
 | **Calculator** | Commission, payment fees, net, profit and margin. Also in reverse: "I want €X profit" gives the lowest asking price. Rates live in fee profiles, not in the code. |
 | **Photos** | 1–6 per card, with a main photo and ordering. Resized, thumbnailed, EXIF removed, and only visible to the owner. |
 | **Sales and dashboard** | Fees recorded at the rate that applied on the sale date. Profit per card, set and month, weighted margin, days to sale, and money tied up in stock. |
@@ -292,8 +292,8 @@ profile (13.25% + €0.35) is an example; check the current eBay rates.
   insert?" appear only while that variant is ticked, and are cleared when you
   untick it. A serial number is `23/50` or `/50`; a number above the print run
   is rejected.
-- **Remembered names:** players, sets, and parallel and insert names you typed
-  before are suggested in those fields (most used first, only from your own cards). A new
+- **Remembered names:** players, sports, sets, and parallel and insert names you
+  typed before are suggested in those fields (most used first, only from your own cards). A new
   name can always be typed.
 - **Price advice** searches on the print run (`/50`), not the exact copy
   (`23/50`), which would find almost nothing.
@@ -467,8 +467,8 @@ and a half. A selection:
 - **CSV import:** bad rows reported with the right line number, the rest goes
   through; several variants per cell, condition abbreviations and serial numbers.
 - **Card details:** variant order and duplicates, names cleared when a variant is
-  unticked, serial number validation, remembered players, sets and parallel/insert
-  names (own cards only), the variant filter, and the title and search
+  unticked, serial number validation, remembered players, sports, sets and
+  parallel/insert names (own cards only), the variant filter, and the title and search
   query built from them.
 - **Title generator:** exactly 80 characters, 81 characters, missing fields,
   special characters and Unicode normalisation.
