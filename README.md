@@ -50,7 +50,7 @@ when eBay goes down.
 | **Sales and dashboard** | Fees recorded at the rate that applied on the sale date. Profit per card, set and month, weighted margin, days to sale, and money tied up in stock. |
 | **Listing generator** | Templates with placeholders, length check, photo checklist, copy buttons and profit at the asking price. |
 | **Stale inventory** | Per-user thresholds (30/60/90), colour coding, "Needs attention" with a suggestion per card, pinning, weekly email. |
-| **Price advice** | Active eBay listings (Browse API) next to your own sales history: minimum, median, maximum and a suggested price. |
+| **Price advice** | Sold prices from eBay (a link to eBay's sold items search, then paste the prices; no API keys needed), your own sales history and active listings (Browse API): minimum, median, maximum and a suggested price. |
 | **Shipping** | Shipping methods with their cost (Deutsche Post and DHL to start with). Choosing one in the calculator or a sale fills in the shipping cost. |
 | **REST API** | DRF with token authentication, own data only, OpenAPI docs. |
 
@@ -153,7 +153,7 @@ flowchart LR
 | `finance` | `calculator.py`: pure functions without a database (Decimal, rounding, reverse calculation). `FeeProfile` per category with `valid_from`. |
 | `inventory` | Cards, purchases and photos. `photos.py` (validation, re-encoding, management), `storage.py` (private storage), `aging.py` (age and suggestions), `digest.py` (weekly email), `csv_import.py`. |
 | `sales` | Listings, sales and templates. `services.register_sale`, `dashboard.py`, `listing_generator.py`. |
-| `pricing` | Price advice: filtering eBay results, own history, suggested price, snapshots. |
+| `pricing` | Price advice: pasted sold prices, filtering eBay results, own history, suggested price, snapshots. |
 | `ebay` | HTTP client with tokens, retries, budget and ETag cache; Authorization Code Flow; encrypted token storage. Knows nothing about the rest of the app. |
 | `api` | Serializers and viewsets. No business rules of its own: everything goes through the same services. |
 
@@ -407,13 +407,22 @@ schtasks /Create /SC WEEKLY /D MON /ST 08:00 /TN "Card Flip Desk digest" /TR "\"
 
 **Price advice:**
 
+- **Sold prices without the API:** *Open sold items on eBay* opens eBay's own
+  search for the card with the "sold items" filter, on the configured
+  marketplace (`www.ebay.de` for `EBAY_DE`), in your browser. Paste the prices
+  of comparable cards into *Sold prices*: `12,50 14 9,99 EUR 15,00` and
+  `1.234,56` both work, and anything that is not a price is listed as ignored.
+  The app never fetches eBay pages itself, so this needs no keys and stays
+  within eBay's terms.
 - **Search query:** built from the card data and editable.
 - **Filters:** only listings in the configured currency and with the
   player's surname in the title.
-- **Suggested price:** the median of your own sales (from 2 onwards),
-  otherwise the median of the asking prices, with a clear note that those
-  are not sale prices.
-- **Snapshots:** every fetch creates a `PriceSnapshot`.
+- **Suggested price**, in this order: the median of the sold prices you entered
+  (from 2 onwards), the median of your own sales (from 2 onwards), a single
+  sold price, the median of the active asking prices (with a clear note that
+  those are not sale prices), and finally a single own sale.
+- **Snapshots:** every fetch and every set of sold prices creates a
+  `PriceSnapshot`, so you can see how the price moves.
 
 ## REST API
 
@@ -490,7 +499,7 @@ development.
   the healthchecks, fetches `/health/`, the login page and a static file, and
   runs `check --deploy`.
 
-294 tests, without a network (eBay is mocked with respx), in about a minute
+310 tests, without a network (eBay is mocked with respx), in about a minute
 and a half. A selection:
 
 - **Calculator:** known examples with exact `Decimal`s, rounding boundaries
@@ -505,6 +514,9 @@ and a half. A selection:
   (migration), a method filling in the cost, a typed cost winning, a sale
   keeping its amount after a price change, and another user's methods neither
   visible nor selectable.
+- **Sold prices:** German and English notation, thousands separators, ignored
+  text, limits, the sold items link per marketplace, the order of the
+  suggested price, and no eBay call when you paste prices.
 - **Card details:** variant order and duplicates, names cleared when a variant is
   unticked, serial number validation, remembered players, sports, sets and
   parallel/insert names (own cards only), the variant filter, and the title and search

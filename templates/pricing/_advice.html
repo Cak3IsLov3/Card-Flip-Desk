@@ -1,13 +1,41 @@
 {% load money %}
 <div id="advice">
-  <div class="msg msg-warning small">Note: active listings show <strong>asking prices</strong>, not sale prices. Cards priced too high often just sit there.</div>
+  <section class="panel">
+    <h2>Sold prices on eBay</h2>
+    <p class="small muted">What buyers really paid. Open eBay's own search with the "sold items" filter, then paste the
+      prices of comparable cards here. No eBay keys needed.</p>
+    <p><a class="button secondary" href="{{ sold_url }}" target="_blank" rel="noopener noreferrer">Open sold items on eBay ↗</a>
+      <span class="small muted">Search: {{ advice.query }}</span></p>
+    <form method="post" hx-post="{% url 'pricing:card_advice' card.pk %}" hx-target="#advice" hx-swap="outerHTML">{% csrf_token %}
+      <input type="hidden" name="action" value="sold">
+      <input type="hidden" name="q" value="{{ advice.query }}">
+      <div class="field">
+        <label for="sold-prices">Sold prices</label>
+        <textarea id="sold-prices" name="prices" rows="3" maxlength="5000" placeholder="12,50  14  9,99  EUR 15,00">{{ sold_text }}</textarea>
+        <small class="help">Separate prices with spaces or new lines. 12,50 and 12.50 both work; € and EUR are ignored.
+          Skip lots and cards that are not comparable (other parallel, graded …).</small>
+      </div>
+      <button>Use these prices</button>
+    </form>
+    {% if advice.sold %}
+      {% if advice.sold.stats %}
+        <p class="small">Used {{ advice.sold.stats.count }} price{{ advice.sold.stats.count|pluralize }}:
+          {% for p in advice.sold.prices %}{{ p|euro }}{% if not forloop.last %} · {% endif %}{% endfor %}</p>
+      {% else %}
+        <p class="bad small">No prices found in what you entered.</p>
+      {% endif %}
+      {% if advice.sold.ignored %}<p class="small muted">Ignored: {{ advice.sold.ignored|join:", " }}</p>{% endif %}
+    {% endif %}
+  </section>
+
+  {% if advice.active %}<div class="msg msg-warning small">Note: active listings show <strong>asking prices</strong>, not sale prices. Cards priced too high often just sit there.</div>{% endif %}
 
   <section class="panel">
     <h2>Advice</h2>
     {% if advice.summary %}
       {% for line in advice.summary %}<p>{{ line }}</p>{% endfor %}
     {% elif not fetched %}
-      <p class="muted">Fetch active listings, or sell comparable cards first to build up your own history.</p>
+      <p class="muted">Enter sold prices from eBay above, fetch active listings, or sell comparable cards first to build up your own history.</p>
     {% else %}
       <p class="muted">Not enough data for a suggested price yet. Pick a price yourself with the <a href="{% url 'finance:calculator' %}?card={{ card.pk }}">calculator</a>.</p>
     {% endif %}

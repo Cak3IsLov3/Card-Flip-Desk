@@ -10,7 +10,7 @@
     <label for="q">eBay search query</label>
     <input id="q" name="q" value="{{ advice.query|default:default_query }}" maxlength="200">
   </div>
-  <button>Fetch active listings</button>
+  <button class="secondary">Fetch active listings (eBay API)</button>
   <span id="advice-loading" class="htmx-indicator muted small">Fetching…</span>
 </form>
 

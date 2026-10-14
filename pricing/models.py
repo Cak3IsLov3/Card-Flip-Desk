@@ -6,6 +6,7 @@ from inventory.models import Card
 class PriceSource(models.TextChoices):
     EBAY_ACTIVE = "ebay_active", "eBay active listings"
     OWN_HISTORY = "own_history", "Own sales history"
+    MANUAL_SOLD = "manual_sold", "eBay sold prices (entered)"
 
 
 class PriceSnapshot(models.Model):

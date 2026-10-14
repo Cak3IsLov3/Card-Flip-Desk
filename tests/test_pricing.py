@@ -133,7 +133,8 @@ def test_view_get_does_not_call_ebay(user, card, client_for, ebay_ok):
     resp = client_for(user).get(reverse("pricing:card_advice", args=[card.pk]))
     assert resp.status_code == 200
     assert ebay_ok.call_count == 0
-    assert b"asking prices" in resp.content
+    assert b"Sold prices on eBay" in resp.content
+    assert b"asking prices" not in resp.content  # the warning only shows with active listings
 
 
 def test_view_post_fetches_with_custom_query_and_escapes(user, card, client_for, ebay_keys, respx_mock):
