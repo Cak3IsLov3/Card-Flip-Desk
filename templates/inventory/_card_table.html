@@ -1,6 +1,6 @@
 {% load money %}
 <div class="table-wrap"><table>
-  <thead><tr><th><span class="sr-only">Foto</span></th><th>Kaart</th><th>Variant</th><th>Conditie</th><th>Status</th><th class="num">Inkoop</th></tr></thead>
+  <thead><tr><th><span class="sr-only">Foto</span></th><th>Kaart</th><th>Variant</th><th>Conditie</th><th>Status</th><th class="num">Dagen</th><th class="num">Inkoop</th></tr></thead>
   <tbody>
   {% for card in page %}
     <tr>
@@ -9,10 +9,11 @@
       <td>{{ card.get_variant_display }}</td>
       <td>{{ card.condition|default:"–" }}</td>
       <td><span class="badge badge-{{ card.status }}">{{ card.get_status_display }}</span></td>
+      <td class="num">{% include "inventory/_age.html" %}</td>
       <td class="num">{{ card.cost_total|euro }}</td>
     </tr>
   {% empty %}
-    <tr><td colspan="6" class="muted">Geen kaarten gevonden.</td></tr>
+    <tr><td colspan="7" class="muted">Geen kaarten gevonden.</td></tr>
   {% endfor %}
   </tbody>
 </table></div>

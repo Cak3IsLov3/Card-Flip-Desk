@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import photo_views, views
+from . import attention_views, photo_views, views
 
 app_name = "inventory"
 
@@ -20,6 +20,12 @@ urlpatterns = [
     path("fotos/<int:pk>/soort/", photo_views.photo_label, name="photo_label"),
     path("fotos/<int:pk>/vervangen/", photo_views.photo_replace, name="photo_replace"),
     path("fotos/<int:pk>/verwijderen/", photo_views.photo_delete, name="photo_delete"),
+    path("aandacht/", attention_views.attention_list, name="attention"),
+    path("aandacht/drempels/", attention_views.threshold_settings, name="threshold_settings"),
+    path("<int:pk>/vastzetten/", attention_views.pin_card, name="pin_card"),
+    path("<int:pk>/losmaken/", attention_views.unpin_card, name="unpin_card"),
+    path("<int:pk>/prijsverlaging/", attention_views.price_preview, name="price_preview"),
+    path("<int:pk>/prijsverlaging/toepassen/", attention_views.price_apply, name="price_apply"),
     path("import/", views.csv_upload, name="csv_upload"),
     path("import/koppelen/", views.csv_map, name="csv_map"),
 ]

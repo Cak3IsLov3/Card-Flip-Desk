@@ -25,6 +25,30 @@
   <div class="stat"><div class="label">Vast in voorraad</div><div class="value">{{ d.stock_value|euro }}</div><div class="muted small">{{ d.stock_count }} onverkochte kaart{{ d.stock_count|pluralize:"en" }}</div></div>
 </div>
 
+<section class="panel attention-block">
+  <h2>Aandacht nodig</h2>
+  {% with a=d.attention %}
+  {% if a.items %}
+    <p><strong>{{ a.items|length }}</strong> kaart{{ a.items|length|pluralize:"en" }} boven de drempel, samen <strong>{{ a.total|euro }}</strong> vast.
+      <span class="badge badge-warning">let op {{ a.counts.warning }}</span>
+      <span class="badge badge-action">actie {{ a.counts.action }}</span>
+      <span class="badge badge-critical">kritiek {{ a.counts.critical }}</span></p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Kaart</th><th class="num">Dagen</th><th class="num">Vast</th><th>Voorstel</th></tr></thead>
+      <tbody>{% for item in a.items|slice:":5" %}
+        <tr><td><a href="{% url 'inventory:card_detail' item.card.pk %}">{{ item.card }}</a></td>
+          <td class="num"><span class="age age-{{ item.level }}">{{ item.age_days }}</span> <span class="badge badge-{{ item.level }}">{{ item.level_label|lower }}</span></td>
+          <td class="num">{{ item.cost|euro }}</td>
+          <td class="small">{{ item.advice }}{% if item.price and item.price.is_loss %} <span class="bad">⚠ verlies bij nieuwe prijs</span>{% endif %}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+    <p><a href="{% url 'inventory:attention' %}">Alle {{ a.items|length }} bekijken en acties uitvoeren →</a></p>
+  {% else %}
+    <p class="good">✓ Geen kaarten boven de drempel. <a href="{% url 'inventory:threshold_settings' %}">Drempels</a></p>
+  {% endif %}
+  {% endwith %}
+</section>
+
 {{ chart_data|json_script:"chart-data" }}
 
 <div class="grid grid-wide">

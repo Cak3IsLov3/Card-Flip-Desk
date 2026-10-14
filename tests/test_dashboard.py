@@ -110,7 +110,8 @@ def test_margin_helper():
 
 def test_dashboard_view(user, shop, client_for, django_assert_max_num_queries):
     client = client_for(user)
-    with django_assert_max_num_queries(14):
+    # incl. het blok "Aandacht nodig" en het aanmaken van de drempels bij het eerste bezoek
+    with django_assert_max_num_queries(20):
         resp = client.get(reverse("dashboard"), {"periode": "all"})
     assert resp.status_code == 200
     data = json.loads(json.dumps(resp.context["chart_data"]))  # moet JSON-serialiseerbaar zijn

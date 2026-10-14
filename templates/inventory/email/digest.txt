@@ -1,0 +1,19 @@
+{% load money %}{% autoescape off %}Hoi {{ user.username }},
+
+{{ summary.items|length }} kaart{{ summary.items|length|pluralize:"en" }} in je voorraad {{ summary.items|length|pluralize:"staat,staan" }} langer dan {{ thresholds.warning_days }} dagen stil. Daar zit {{ summary.total|euro }} in vast.
+
+Waarschuwing ({{ thresholds.warning_days }}+ dagen): {{ summary.counts.warning }}
+Actie ({{ thresholds.action_days }}+ dagen): {{ summary.counts.action }}
+Kritiek ({{ thresholds.critical_days }}+ dagen): {{ summary.counts.critical }}
+
+Oudste eerst:
+{% for item in summary.items|slice:":15" %}
+- {{ item.card }} — {{ item.age_days }} dagen, {{ item.cost|euro }} vast
+  {{ item.level_label }}: {{ item.advice }}{% if item.price %} ({{ item.price.current_price|euro }} → {{ item.price.new_price|euro }}{% if item.price.new %}, winst {{ item.price.new.profit|euro }}{% endif %}){% if item.price.is_loss %} LET OP: verlies{% endif %}{% endif %}
+{% endfor %}{% if summary.items|length > 15 %}
+… en nog {{ summary.items|length|add:"-15" }}.
+{% endif %}
+Bekijken en acties uitvoeren: {{ site_url }}{% url 'inventory:attention' %}
+
+Geen mail meer? Zet het uit bij Drempels: {{ site_url }}{% url 'inventory:threshold_settings' %}
+{% endautoescape %}

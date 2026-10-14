@@ -1,0 +1,18 @@
+{% load money %}
+<div class="price-suggestion" id="price-{{ card.pk }}">
+{% if price %}
+  <div>Van {{ price.current_price|euro }} naar <strong>{{ price.new_price|euro }}</strong> (−{{ price.percentage|pct }})</div>
+  {% if price.new %}
+  <div class="small">
+    Winst {{ price.current.profit|euro }} → <strong class="{% if price.is_loss %}bad{% else %}good{% endif %}">{{ price.new.profit|euro }}</strong>,
+    marge {{ price.current.margin|pct }} → {{ price.new.margin|pct }}
+    <span class="muted">(zonder verzending)</span>
+  </div>
+  {% if price.is_loss %}<div class="bad small">⚠ Bij deze prijs maak je verlies.</div>{% endif %}
+  {% else %}<div class="muted small">Geen kostenprofiel: winst niet te berekenen.</div>{% endif %}
+{% elif form and form.errors %}
+  <div class="error small">Kies een percentage tussen 0,1 en 90.</div>
+{% else %}
+  <div class="muted small">Nog geen listing met vraagprijs. <a href="{% url 'sales:listing_generator' card.pk %}">Listing maken</a></div>
+{% endif %}
+</div>

@@ -4,8 +4,8 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
-from django.db.models import Count, F, Min, Q, Sum
-from django.db.models.functions import Coalesce
+from django.db.models import Case, Count, F, Min, OuterRef, Q, Subquery, Sum, When
+from django.db.models.functions import Coalesce, TruncDate
 
 from .storage import photo_storage
 
@@ -58,6 +58,27 @@ class CardQuerySet(models.QuerySet):
                 output_field=models.DecimalField(max_digits=12, decimal_places=2),
             )
         )["total"]
+
+    def with_age_start(self):
+        """Annoteert `age_start`: de datum vanaf waar de leeftijd telt.
+
+        Te koop: vanaf 'te koop sinds'. Anders (of als die ontbreekt): vanaf
+        de eerste inkoop, en zonder inkoop vanaf het moment van invoeren.
+        """
+        first_purchase = (
+            Purchase.objects.filter(card=OuterRef("pk")).order_by("date").values("date")[:1]
+        )
+        return self.annotate(
+            age_start=Coalesce(
+                Case(When(status=CardStatus.FOR_SALE, then=F("listed_since"))),
+                Subquery(first_purchase, output_field=models.DateField()),
+                TruncDate("created_at"),
+                output_field=models.DateField(),
+            )
+        )
+
+    def not_pinned(self, today):
+        return self.filter(Q(held_until__isnull=True) | Q(held_until__lt=today))
 
     def unsold_by_age(self):
         """Onverkochte kaarten met inkoopkosten, oudste inkoop eerst."""
@@ -162,6 +183,62 @@ class CardPhoto(models.Model):
 
     def __str__(self):
         return f"{self.get_label_display()} – {self.card}"
+
+
+class StaleThreshold(models.Model):
+    """Drempels voor oude voorraad, per gebruiker instelbaar."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="stale_threshold"
+    )
+    warning_days = models.PositiveSmallIntegerField("waarschuwing na (dagen)", default=30)
+    action_days = models.PositiveSmallIntegerField("actie na (dagen)", default=60)
+    critical_days = models.PositiveSmallIntegerField("kritiek na (dagen)", default=90)
+    price_drop_percentage = models.DecimalField(
+        "voorgestelde prijsverlaging %", max_digits=4, decimal_places=1, default=Decimal("10.0")
+    )
+    weekly_email = models.BooleanField("wekelijks overzicht per e-mail", default=True)
+    last_digest_sent_on = models.DateField(null=True, blank=True, editable=False)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(warning_days__gt=0)
+                & Q(action_days__gt=F("warning_days"))
+                & Q(critical_days__gt=F("action_days")),
+                name="stale_thresholds_increasing",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.warning_days}/{self.action_days}/{self.critical_days} dagen"
+
+    @classmethod
+    def for_user(cls, user):
+        obj, _ = cls.objects.get_or_create(user=user)
+        return obj
+
+
+class NoteKind(models.TextChoices):
+    PINNED = "pinned", "Vastgezet"
+    UNPINNED = "unpinned", "Losgemaakt"
+    PRICE_LOWERED = "price_lowered", "Prijs verlaagd"
+    BUNDLED = "bundled", "Gebundeld"
+
+
+class InventoryNote(models.Model):
+    """Logboek van acties op oude voorraad."""
+
+    card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="inventory_notes")
+    kind = models.CharField("type", max_length=20, choices=NoteKind.choices)
+    created_at = models.DateTimeField("gemaakt op", auto_now_add=True)
+    details = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"{self.get_kind_display()} – {self.card}"
 
 
 class Purchase(models.Model):

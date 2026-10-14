@@ -12,6 +12,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 from finance.models import FeeProfile
 from inventory.models import Card, CardStatus, Purchase
+from sales.models import Listing, ListingStatus
 from sales.services import register_sale
 
 DEMO_USERNAME = "demo"
@@ -76,6 +77,24 @@ class Command(BaseCommand):
                 card=card, price=D(cost), shipping_in=D("1.00"),
                 date=today - timedelta(days=30 * i + 10), source="Cardmarket",
             )
+        # Elk voorraadniveau één keer: actie met vraagprijs (en verlies bij
+        # verlaging), waarschuwing, kritiek met bundelkans.
+        bellingham = Card.objects.get(owner=user, player="Jude Bellingham")
+        bellingham.listed_since = today - timedelta(days=65)
+        bellingham.save()
+        Listing.objects.create(card=bellingham, title=str(bellingham), asking_price=D("7.99"),
+                               status=ListingStatus.ACTIVE)
+        verstappen = Card.objects.get(owner=user, player="Max Verstappen")
+        verstappen.listed_since = today - timedelta(days=35)
+        verstappen.save()
+        Listing.objects.create(card=verstappen, title=str(verstappen), asking_price=D("6.50"),
+                               status=ListingStatus.ACTIVE)
+        perez = Card.objects.create(
+            owner=user, player="Sergio Pérez", sport="F1", set_name="Topps Chrome F1", year=2024,
+            card_number="11", condition="Near Mint",
+        )
+        Purchase.objects.create(card=perez, price=D("1.50"), date=today - timedelta(days=120))
+
         register_sale(
             Card.objects.get(owner=user, player="Bukayo Saka"),
             sale_price=D("4.99"), shipping_income=D("1.95"), shipping_cost=D("1.45"),

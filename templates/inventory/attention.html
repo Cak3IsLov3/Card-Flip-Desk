@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Aandacht nodig – Card Flip Desk{% endblock %}
+{% block content %}
+<h1>Aandacht nodig</h1>
+<p class="muted">
+  Drempels: waarschuwing na {{ thresholds.warning_days }}, actie na {{ thresholds.action_days }},
+  kritiek na {{ thresholds.critical_days }} dagen. <a href="{% url 'inventory:threshold_settings' %}">Aanpassen</a>
+</p>
+
+<div class="stats">
+  <div class="stat"><div class="label">Vast in deze kaarten</div><div class="value">{{ summary.total|euro }}</div><div class="muted small">{{ summary.items|length }} kaart{{ summary.items|length|pluralize:"en" }}</div></div>
+  <div class="stat"><div class="label"><span class="badge badge-warning">let op</span> {{ thresholds.warning_days }}+ dagen</div><div class="value">{{ summary.counts.warning }}</div></div>
+  <div class="stat"><div class="label"><span class="badge badge-action">actie</span> {{ thresholds.action_days }}+ dagen</div><div class="value">{{ summary.counts.action }}</div></div>
+  <div class="stat"><div class="label"><span class="badge badge-critical">kritiek</span> {{ thresholds.critical_days }}+ dagen</div><div class="value">{{ summary.counts.critical }}</div></div>
+</div>
+
+{% if summary.items %}
+<ul class="attention-list">
+  {% for item in summary.items %}
+  <li class="panel attention-{{ item.level }}">
+    <div class="attention-head">
+      <div>
+        <a href="{% url 'inventory:card_detail' item.card.pk %}"><strong>{{ item.card }}</strong></a>
+        <div class="small muted">{{ item.card.get_status_display }} · {{ item.age_days }} dagen · {{ item.cost|euro }} vast</div>
+      </div>
+      <span class="badge badge-{{ item.level }}">{{ item.level_label }}</span>
+    </div>
+    <p><strong>Voorstel:</strong> {{ item.advice }}</p>
+
+    {% if item.level == "warning" %}
+      <div class="actions">
+        <a class="button secondary" href="{% url 'inventory:card_detail' item.card.pk %}#photo-panel">Foto's</a>
+        <a class="button secondary" href="{% url 'sales:listing_generator' item.card.pk %}">Titel</a>
+      </div>
+    {% elif item.level == "action" %}
+      {% include "inventory/_price_suggestion.html" with card=item.card price=item.price form=None %}
+      {% if item.price %}
+      <form method="post" action="{% url 'inventory:price_apply' item.card.pk %}" class="inline-form">{% csrf_token %}
+        <label for="pct-{{ item.card.pk }}">Verlagen met %</label>
+        <input id="pct-{{ item.card.pk }}" type="number" name="percentage" step="0.1" min="0.1" max="90"
+               value="{{ thresholds.price_drop_percentage|stringformat:'s' }}"
+               hx-get="{% url 'inventory:price_preview' item.card.pk %}" hx-trigger="input delay:300ms"
+               hx-target="#price-{{ item.card.pk }}" hx-swap="outerHTML">
+        <button>Prijs verlagen</button>
+      </form>
+      {% endif %}
+    {% else %}
+      <div class="actions">
+        <a class="button secondary" href="{% url 'inventory:card_list' %}?set_name={{ item.card.set_name|urlencode }}&year={{ item.card.year }}">Kaarten uit deze set</a>
+      </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'inventory:pin_card' item.card.pk %}" class="inline-form">{% csrf_token %}
+      <label for="pin-{{ item.card.pk }}">Bewust vasthouden tot</label>
+      <input id="pin-{{ item.card.pk }}" type="date" name="held_until" value="{{ default_pin_until|date:'Y-m-d' }}" required>
+      <button class="secondary">Vastzetten</button>
+    </form>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+  <p class="good">✓ Geen kaarten boven de drempel.</p>
+{% endif %}
+
+{% if pinned %}
+<section class="panel">
+  <h2>Vastgezet</h2>
+  <table><tbody>{% for c in pinned %}
+    <tr><td><a href="{% url 'inventory:card_detail' c.pk %}">{{ c }}</a></td><td class="nowrap">tot {{ c.held_until|date:"d-m-Y" }}</td>
+      <td><form method="post" action="{% url 'inventory:unpin_card' c.pk %}">{% csrf_token %}<button class="link">Losmaken</button></form></td></tr>
+  {% endfor %}</tbody></table>
+</section>
+{% endif %}
+{% endblock %}

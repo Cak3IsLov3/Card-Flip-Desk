@@ -92,3 +92,18 @@ td.num, th.num, td.nowrap { white-space: nowrap; }
 .field textarea { width: 100%; }
 .photo-grid-sm { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
 code { font-size: .85em; background: var(--bg); padding: .05rem .3rem; border-radius: 4px; }
+:root { --serious: #c4561d; }
+@media (prefers-color-scheme: dark) { :root { --serious: #f08a4b; } }
+.badge-warning { border-color: var(--warn); color: var(--warn); }
+.badge-action { border-color: var(--serious); color: var(--serious); }
+.badge-critical { border-color: var(--bad); color: var(--bad); font-weight: 600; }
+.age-warning { color: var(--warn); } .age-action { color: var(--serious); } .age-critical { color: var(--bad); font-weight: 600; }
+.attention-list { list-style: none; padding: 0; margin: 0; }
+.attention-list > li { border-left-width: 4px; }
+.attention-warning { border-left-color: var(--warn) !important; }
+.attention-action { border-left-color: var(--serious) !important; }
+.attention-critical { border-left-color: var(--bad) !important; }
+.attention-head { display: flex; justify-content: space-between; gap: 1rem; align-items: start; }
+.inline-form { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .5rem; }
+.inline-form input[type=number] { width: 6rem; }
+.price-suggestion { margin: .5rem 0; }

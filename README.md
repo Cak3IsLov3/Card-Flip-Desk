@@ -14,7 +14,8 @@ verkoop op eBay, en uitrekent wat er na alle kosten echt overblijft.
 | 5 | Foto's per kaart (validatie, thumbnails, EXIF weg, privé-opslag) | ✅ |
 | 6 | Dashboard met KPI's, grafieken en voorraadleeftijd | ✅ |
 | 7 | Listing-generator met templates en controles | ✅ |
-| 8–11 | Voorraadwaarschuwingen, eBay, API, docs | open |
+| 8 | Waarschuwingen voor oude voorraad, 'Aandacht nodig', wekelijkse mail | ✅ |
+| 9–11 | eBay, API, docs | open |
 
 ## Starten
 
@@ -33,7 +34,8 @@ Tests: `.venv\Scripts\python -m pytest`
 ```
 config/      settings, urls, registratie (maakt een startkostenprofiel aan)
 inventory/   Card, Purchase, CardQuerySet (filters, voorraadwaarde), CSV-import,
-             CardPhoto + photos.py (verwerking), storage.py (privé-opslag)
+             CardPhoto + photos.py (verwerking), storage.py (privé-opslag),
+             aging.py (leeftijd + voorstellen), digest.py (wekelijkse mail)
 finance/     calculator.py (pure functies), FeeProfile
 sales/       Listing, Sale, SaleQuerySet (winst via subquery), services.register_sale,
              dashboard.py (voegt queryset-cijfers samen, expliciete 'today'),
@@ -118,3 +120,39 @@ andermans data. Dit wordt per endpoint getest.
 - **Vraagprijs** toont direct de winst via de kostencalculator.
 - **Concept / actief:** "actief" zet de kaart op te koop met een
   'te koop sinds'-datum; een latere verkoop gebruikt deze listing.
+### Oude voorraad
+
+- **Leeftijd** telt vanaf "te koop sinds"; voor kaarten die nog niet te koop
+  staan vanaf de eerste inkoop (zonder inkoop: vanaf invoer). Berekend in
+  `CardQuerySet.with_age_start()`, dus filteren en sorteren gebeurt in de
+  database.
+- **Drempels per gebruiker** (standaard 30 / 60 / 90 dagen). Precies op de
+  drempel telt al mee. Kleurcode én tekstlabel in het voorraadoverzicht.
+- **Voorstellen:** 30+ foto's of titel verbeteren; 60+ prijs verlagen met een
+  instelbaar percentage, met direct de nieuwe winst en marge via de
+  calculator en een waarschuwing bij verlies; 90+ bundelen met kaarten uit
+  dezelfde set, of afschrijven als die er niet zijn.
+- **Vastzetten** tot een datum: zo'n kaart geeft geen meldingen. Acties
+  (vastzetten, losmaken, prijs verlaagd) komen in `InventoryNote`.
+- **`aging.py` krijgt `today` mee**; de aandachtslijst kost een vast aantal
+  query's, onafhankelijk van het aantal kaarten.
+
+### Wekelijkse mail
+
+`python manage.py send_stale_digest` stuurt elke gebruiker met een
+e-mailadres en de mail aan een overzicht, maar **niets als er niets te melden
+is**, en hooguit één keer per 7 dagen (`--force` negeert dat, `--dry-run`
+verstuurt niets, `--today JJJJ-MM-DD` voor tests). Het command staat los van
+de planner; plan het zelf in:
+
+```bash
+# cron (Linux/macOS), elke maandag 08:00
+0 8 * * 1 cd /pad/naar/card-flip-desk && .venv/bin/python manage.py send_stale_digest
+```
+
+```bash
+schtasks /Create /SC WEEKLY /D MON /ST 08:00 /TN "Card Flip Desk digest" /TR "\"D:\GitHub\Card Flip Desk\.venv\Scripts\python.exe\" \"D:\GitHub\Card Flip Desk\manage.py\" send_stale_digest"
+```
+
+Stel voor echte mail een SMTP-backend in `MAILERS` in en zet `SITE_URL` en
+`DEFAULT_FROM_EMAIL` via omgevingsvariabelen.

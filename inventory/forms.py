@@ -1,8 +1,10 @@
+from decimal import Decimal
+
 from django import forms
 from django.utils import timezone
 
 from .csv_import import IMPORT_FIELDS, REQUIRED_FIELDS
-from .models import Card, CardStatus, PhotoLabel, Purchase
+from .models import Card, CardStatus, PhotoLabel, Purchase, StaleThreshold
 
 
 class DateInput(forms.DateInput):
@@ -98,6 +100,58 @@ class PhotoReplaceForm(forms.Form):
 
 class PhotoLabelForm(forms.Form):
     label = forms.ChoiceField(choices=PhotoLabel.choices)
+
+
+class StaleThresholdForm(forms.ModelForm):
+    email = forms.EmailField(label="E-mailadres voor het overzicht", required=False)
+
+    class Meta:
+        model = StaleThreshold
+        fields = ["warning_days", "action_days", "critical_days", "price_drop_percentage", "weekly_email"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["email"].initial = self.instance.user.email
+
+    def save(self, commit=True):
+        obj = super().save(commit)
+        user = obj.user
+        user.email = self.cleaned_data.get("email", "")
+        if commit:
+            user.save(update_fields=["email"])
+        return obj
+
+    def clean(self):
+        cleaned = super().clean()
+        w, a, c = (cleaned.get(k) for k in ("warning_days", "action_days", "critical_days"))
+        if None not in (w, a, c) and not (0 < w < a < c):
+            raise forms.ValidationError("De drempels moeten oplopen: waarschuwing < actie < kritiek.")
+        if cleaned.get("weekly_email") and not cleaned.get("email"):
+            self.add_error("email", "Vul een e-mailadres in om het wekelijkse overzicht te ontvangen.")
+        pct = cleaned.get("price_drop_percentage")
+        if pct is not None and not (0 < pct < 100):
+            self.add_error("price_drop_percentage", "Kies een percentage tussen 0 en 100.")
+        return cleaned
+
+
+class PinForm(forms.Form):
+    held_until = forms.DateField(label="Vastzetten tot", widget=DateInput)
+
+    def __init__(self, *args, today=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.today = today or timezone.localdate()
+
+    def clean_held_until(self):
+        value = self.cleaned_data["held_until"]
+        if value <= self.today:
+            raise forms.ValidationError("Kies een datum na vandaag.")
+        return value
+
+
+class PriceDropForm(forms.Form):
+    percentage = forms.DecimalField(
+        label="Verlagen met %", min_value=Decimal("0.1"), max_value=Decimal("90"), decimal_places=1
+    )
 
 
 class CsvUploadForm(forms.Form):

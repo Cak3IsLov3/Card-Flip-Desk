@@ -23,7 +23,25 @@
       <dt>Conditie</dt><dd>{{ card.condition|default:"–" }}</dd>
       <dt>Status</dt><dd><span class="badge badge-{{ card.status }}">{{ card.get_status_display }}</span></dd>
       <dt>Te koop sinds</dt><dd>{{ card.listed_since|date:"d-m-Y"|default:"–" }}</dd>
+      {% if card.status != "sold" %}<dt>Leeftijd (dagen)</dt><dd>{% include "inventory/_age.html" %}</dd>{% endif %}
     </dl>
+    {% if card.status != "sold" %}
+      {% if card.is_pinned %}
+      <form method="post" action="{% url 'inventory:unpin_card' card.pk %}" class="inline-form">{% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.path }}">
+        <span class="small">Vastgezet tot {{ card.held_until|date:"d-m-Y" }}: geen meldingen.</span>
+        <button class="link">Losmaken</button>
+      </form>
+      {% else %}
+      <details><summary>Bewust vasthouden (geen meldingen)</summary>
+        <form method="post" action="{% url 'inventory:pin_card' card.pk %}" class="inline-form">{% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.path }}">
+          {{ pin_form.held_until }}
+          <button class="secondary">Vastzetten</button>
+        </form>
+      </details>
+      {% endif %}
+    {% endif %}
     {% if card.notes %}<p>{{ card.notes|linebreaksbr }}</p>{% endif %}
   </section>
 

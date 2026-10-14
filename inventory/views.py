@@ -1,16 +1,19 @@
+from datetime import timedelta
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from sales.models import Sale
 from sales.services import card_profit
 
-from . import csv_import
-from .forms import CardFilterForm, CardForm, CsvMappingForm, CsvUploadForm, PurchaseForm
-from .models import Card, CardPhoto, CardStatus
+from . import aging, csv_import
+from .forms import CardFilterForm, CardForm, CsvMappingForm, CsvUploadForm, PinForm, PurchaseForm
+from .models import Card, CardPhoto, CardStatus, StaleThreshold
 from .photo_views import photo_panel_context
 
 CSV_SESSION_KEY = "csv_import_content"
@@ -28,6 +31,7 @@ def card_list(request):
     filtered = (
         filter_form.apply(cards)
         .with_cost()
+        .with_age_start()
         .prefetch_related(
             Prefetch("photos", CardPhoto.objects.filter(is_main=True), to_attr="main_photos")
         )
@@ -36,6 +40,8 @@ def card_list(request):
     page = Paginator(filtered, 25).get_page(request.GET.get("page"))
     params = request.GET.copy()
     params.pop("page", None)
+    page.object_list = list(page.object_list)
+    _annotate_age(page.object_list, request.user)
 
     context = {
         "page": page,
@@ -52,9 +58,21 @@ def card_list(request):
     return render(request, "inventory/card_list.html", context)
 
 
+def _annotate_age(cards, user, today=None):
+    """Zet age_days en stale_level op elke kaart (voor de kleurcode)."""
+    today = today or timezone.localdate()
+    thresholds = StaleThreshold.for_user(user)
+    for card in cards:
+        pinned = card.held_until is not None and card.held_until >= today
+        card.age_days = None if card.status == CardStatus.SOLD else aging.age_in_days(card.age_start, today)
+        card.stale_level = None if pinned else aging.level_for(card.age_days, thresholds)
+        card.is_pinned = pinned
+
+
 @login_required
 def card_detail(request, pk):
-    card = _own_card(request, pk)
+    card = get_object_or_404(Card.objects.with_age_start(), pk=pk, owner=request.user)
+    _annotate_age([card], request.user)
     return render(
         request,
         "inventory/card_detail.html",
@@ -64,6 +82,7 @@ def card_detail(request, pk):
             "purchase_form": PurchaseForm(),
             "sale": Sale.objects.filter(listing__card=card).first(),
             "profit": card_profit(card),
+            "pin_form": PinForm(initial={"held_until": timezone.localdate() + timedelta(days=30)}),
         },
     )
 

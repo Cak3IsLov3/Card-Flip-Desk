@@ -118,6 +118,10 @@ PHOTO_THUMB_SIZE = 300  # px; langste zijde van de thumbnail
 PHOTOS_PER_CARD = 6
 
 
+# Voor links in e-mails (er is geen request om de host uit te halen).
+SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Card Flip Desk <noreply@localhost>")
+
 MAILERS = {
     "default": {
         "BACKEND": "django.core.mail.backends.console.EmailBackend",

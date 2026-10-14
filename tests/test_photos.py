@@ -323,6 +323,6 @@ def test_card_list_shows_main_thumbnail_without_extra_queries(
     for i in range(5):
         svc.add_photos(make_card(user, player=f"Speler {i}"), [upload(image_bytes(size=(50, 70)))])
     client = client_for(user)
-    with django_assert_max_num_queries(12):
+    with django_assert_max_num_queries(15):  # vast aantal, onafhankelijk van het aantal kaarten
         resp = client.get(reverse("inventory:card_list"))
     assert resp.content.count(b'class="thumb-sm"') == 5

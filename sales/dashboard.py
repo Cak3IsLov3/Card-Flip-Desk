@@ -10,6 +10,7 @@ from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from finance.calculator import ZERO
+from inventory import aging
 from inventory.models import Card
 
 from .models import Sale
@@ -50,6 +51,7 @@ class Dashboard:
     fastest: list = field(default_factory=list)
     slowest: list = field(default_factory=list)
     oldest_stock: list = field(default_factory=list)
+    attention: aging.AttentionSummary | None = None
 
 
 def build_dashboard(user, *, today: date, period: str = DEFAULT_PERIOD, limit: int = 5) -> Dashboard:
@@ -98,6 +100,7 @@ def build_dashboard(user, *, today: date, period: str = DEFAULT_PERIOD, limit: i
         fastest=list(timed.order_by("days_to_sale", "-sold_at")[:limit]),
         slowest=list(timed.order_by("-days_to_sale", "-sold_at")[:limit]),
         oldest_stock=[_with_age(c, today) for c in stock[:10]],
+        attention=aging.attention(user, today),
     )
 
 

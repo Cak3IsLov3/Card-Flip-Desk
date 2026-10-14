@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Drempels – Card Flip Desk{% endblock %}
+{% block content %}
+<h1>Drempels voor oude voorraad</h1>
+<form method="post" class="panel narrow">{% csrf_token %}
+  <p class="muted small">Leeftijd telt vanaf "te koop sinds"; voor kaarten die nog niet te koop staan vanaf de eerste inkoop. Precies op de drempel telt al mee.</p>
+  {% include "_form_fields.html" %}
+  <div class="actions"><button>Opslaan</button><a href="{% url 'inventory:attention' %}">Terug</a></div>
+</form>
+{% endblock %}

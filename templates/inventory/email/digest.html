@@ -1,0 +1,22 @@
+{% load money %}<!doctype html>
+<html lang="nl">
+<body style="font-family: system-ui, sans-serif; color: #1d2330; line-height: 1.5;">
+  <p>Hoi {{ user.username }},</p>
+  <p><strong>{{ summary.items|length }}</strong> kaart{{ summary.items|length|pluralize:"en" }} in je voorraad {{ summary.items|length|pluralize:"staat,staan" }} langer dan {{ thresholds.warning_days }} dagen stil. Daar zit <strong>{{ summary.total|euro }}</strong> in vast.</p>
+  <p>Waarschuwing: {{ summary.counts.warning }} · Actie: {{ summary.counts.action }} · Kritiek: {{ summary.counts.critical }}</p>
+  <table cellpadding="6" style="border-collapse: collapse;">
+    <tr style="text-align: left; color: #667085;"><th>Kaart</th><th>Dagen</th><th>Vast</th><th>Voorstel</th></tr>
+    {% for item in summary.items|slice:":15" %}
+    <tr style="border-top: 1px solid #e3e6eb;">
+      <td>{{ item.card }}</td>
+      <td>{{ item.age_days }} ({{ item.level_label|lower }})</td>
+      <td>{{ item.cost|euro }}</td>
+      <td>{{ item.advice }}{% if item.price %}<br>{{ item.price.current_price|euro }} → {{ item.price.new_price|euro }}{% if item.price.new %}, winst {{ item.price.new.profit|euro }}{% endif %}{% if item.price.is_loss %} <strong style="color: #c0392b;">verlies</strong>{% endif %}{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% if summary.items|length > 15 %}<p>… en nog {{ summary.items|length|add:"-15" }}.</p>{% endif %}
+  <p><a href="{{ site_url }}{% url 'inventory:attention' %}">Bekijken en acties uitvoeren</a></p>
+  <p style="color: #667085; font-size: 13px;">Geen mail meer? <a href="{{ site_url }}{% url 'inventory:threshold_settings' %}">Zet het uit bij Drempels</a>.</p>
+</body>
+</html>
