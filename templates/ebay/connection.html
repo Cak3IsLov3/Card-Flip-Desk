@@ -9,7 +9,7 @@
       <p class="good">✓ Application keys set ({{ client.environment }}, {{ marketplace }}).</p>
       <p class="small muted">{{ calls_today }} of {{ budget }} calls used today. Responses are kept for a few hours, so you do not burn through the budget.</p>
     {% else %}
-      <p>No eBay keys set yet. Price advice then only uses your own sales.</p>
+      <p>No eBay keys set yet. Price advice then uses the sold prices you paste from eBay and your own sales; only the active listings need keys.</p>
       <p class="small muted">Set <code>EBAY_CLIENT_ID</code> and <code>EBAY_CLIENT_SECRET</code> (and optionally <code>EBAY_ENVIRONMENT=production</code>) as environment variables. See the README.</p>
     {% endif %}
     {% if client.environment == "sandbox" %}
