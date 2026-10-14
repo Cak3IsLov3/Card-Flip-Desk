@@ -54,7 +54,14 @@ jobs:
       - name: OpenAPI schema is valid
         run: python manage.py spectacular --validate --fail-on-warn --file /tmp/schema.yml
       - name: Tests
-        run: python -m pytest -o addopts="" -q
+        shell: bash
+        run: |
+          set +e
+          python -m pytest -o addopts="" -q -rfE 2>&1 | tee pytest.log
+          status=${PIPESTATUS[0]}
+          # Surface failures as annotations, readable without opening the log.
+          grep -E "^(FAILED|ERROR) " pytest.log | head -n 10 | sed 's/^/::error::/'
+          exit $status
 
   test-postgres:
     name: Tests (PostgreSQL)
@@ -89,7 +96,14 @@ jobs:
       - name: Migrations apply on PostgreSQL
         run: python manage.py migrate --noinput
       - name: Tests
-        run: python -m pytest -o addopts="" -q
+        shell: bash
+        run: |
+          set +e
+          python -m pytest -o addopts="" -q -rfE 2>&1 | tee pytest.log
+          status=${PIPESTATUS[0]}
+          # Surface failures as annotations, readable without opening the log.
+          grep -E "^(FAILED|ERROR) " pytest.log | head -n 10 | sed 's/^/::error::/'
+          exit $status
 
   docker:
     name: Docker Compose smoke test
@@ -102,6 +116,8 @@ jobs:
           sed -i "s|^DJANGO_SECRET_KEY=.*|DJANGO_SECRET_KEY=$(openssl rand -hex 32)|" .env
           sed -i "s|^TOKEN_ENCRYPTION_KEYS=.*|TOKEN_ENCRYPTION_KEYS=$(openssl rand -base64 32 | tr '+/' '-_')|" .env
           sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 16)|" .env
+          # The deploy check requires a real mail backend; it is never contacted here.
+          sed -i "s|^EMAIL_HOST=.*|EMAIL_HOST=smtp.example.invalid|" .env
       - name: Build and start
         run: docker compose up -d --build --wait --wait-timeout 180
       - name: Health, login page and static files respond
