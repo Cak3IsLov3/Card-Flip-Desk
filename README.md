@@ -16,10 +16,10 @@ when eBay goes down.
 
 | | |
 |---|---|
-| ![Charts](docs/screenshots/02-dashboard-charts.jpg) **Dashboard:** revenue and profit per month, margin per set, fastest and slowest sellers | ![Inventory](docs/screenshots/03-inventory.jpg) **Inventory:** filters, main photo, age with colour and label |
-| ![Photos](docs/screenshots/04-photos.jpg) **Photos:** front and back, main photo, ordering, checklist | ![Listing generator](docs/screenshots/05-listing-generator.jpg) **Listing generator:** title of at most 80 characters, checks, profit at the asking price |
-| ![Needs attention](docs/screenshots/06-attention.jpg) **Needs attention:** a suggestion per card; a price drop shows the new profit straight away | ![Calculator](docs/screenshots/07-calculator.jpg) **Calculator:** from price to profit and from profit to price |
-| ![API docs](docs/screenshots/08-api-docs.jpg) **REST API:** OpenAPI docs with token authentication | |
+| ![Charts](docs/screenshots/02-dashboard-charts.jpg) **Dashboard:** revenue and profit per month, margin per set, fastest and slowest sellers | ![Inventory](docs/screenshots/03-inventory.jpg) **Inventory:** filters (also by variant), main photo, variants, condition, age with colour and label |
+| ![Card form](docs/screenshots/04-card-form.jpg) **Card form:** several variants per card; the parallel name and serial number appear when Parallel is ticked | ![Photos](docs/screenshots/05-photos.jpg) **Photos:** front and back, main photo, ordering, checklist |
+| ![Listing generator](docs/screenshots/06-listing-generator.jpg) **Listing generator:** title of at most 80 characters with the variants, checks, profit at the asking price | ![Needs attention](docs/screenshots/07-attention.jpg) **Needs attention:** a suggestion per card; a price drop shows the new profit straight away |
+| ![Calculator](docs/screenshots/08-calculator.jpg) **Calculator:** from price to profit and from profit to price | ![API docs](docs/screenshots/09-api-docs.jpg) **REST API:** OpenAPI docs with token authentication |
 
 *The card images are generated placeholders from `seed_demo`.*
 

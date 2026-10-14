@@ -7,7 +7,7 @@
       <td class="thumb-cell">{% with photo=card.main_photos|first %}{% if photo %}<img class="thumb-sm" src="{% url 'inventory:photo_thumb' photo.pk %}" alt="" loading="lazy">{% else %}<span class="thumb-sm thumb-empty" aria-hidden="true"></span>{% endif %}{% endwith %}</td>
       <td><a href="{% url 'inventory:card_detail' card.pk %}">{{ card }}</a></td>
       <td>{{ card.variant_display }}</td>
-      <td>{{ card.get_condition_display|default:"–" }}</td>
+      <td class="nowrap">{{ card.get_condition_display|default:"–" }}</td>
       <td><span class="badge badge-{{ card.status }}">{{ card.get_status_display }}</span></td>
       <td class="num">{% include "inventory/_age.html" %}</td>
       <td class="num">{{ card.cost_total|euro }}</td>
