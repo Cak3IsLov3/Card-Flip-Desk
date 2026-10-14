@@ -1,8 +1,8 @@
-"""Cijfers voor het dashboard.
+"""Figures for the dashboard.
 
-De query's zelf staan in de querysets; dit bestand voegt ze samen en doet
-de afgeleide berekeningen (marge, ontbrekende maanden, leeftijd). `today`
-wordt altijd meegegeven, zodat tests geen klok hoeven te manipuleren.
+The queries themselves live in the querysets; this module combines them and
+does the derived calculations (margin, missing months, age). `today` is
+always passed in, so tests never need to touch the clock.
 """
 
 from dataclasses import dataclass, field
@@ -16,10 +16,10 @@ from inventory.models import Card
 from .models import Sale
 
 PERIODS = {
-    "30": ("30 dagen", 30),
-    "90": ("90 dagen", 90),
-    "365": ("12 maanden", 365),
-    "all": ("Alles", None),
+    "30": ("30 days", 30),
+    "90": ("90 days", 90),
+    "365": ("12 months", 365),
+    "all": ("All time", None),
 }
 DEFAULT_PERIOD = "365"
 MONTHS_IN_CHART = 12
@@ -27,7 +27,7 @@ TENTH = Decimal("0.1")
 
 
 def margin(profit, revenue):
-    """Marge = winst / omzet × 100 (gewogen), of None bij geen omzet."""
+    """Margin = profit / revenue × 100 (weighted), or None without revenue."""
     if not revenue:
         return None
     return (Decimal(profit) / Decimal(revenue) * 100).quantize(TENTH, rounding=ROUND_HALF_UP)
@@ -105,7 +105,7 @@ def build_dashboard(user, *, today: date, period: str = DEFAULT_PERIOD, limit: i
 
 
 def _months(sales, today, start):
-    """Omzet en winst per maand, inclusief maanden zonder verkoop."""
+    """Revenue and profit per month, including months without sales."""
     first = _month_start(today)
     for _ in range(MONTHS_IN_CHART - 1):
         first = _month_start(first - timedelta(days=1))

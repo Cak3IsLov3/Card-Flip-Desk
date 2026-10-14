@@ -10,14 +10,14 @@ from inventory.models import Card, Purchase
 
 @pytest.fixture(autouse=True)
 def private_media(settings, tmp_path):
-    """Elke test schrijft foto's naar een eigen tijdelijke map."""
+    """Each test writes photos to its own temporary folder."""
     settings.PRIVATE_MEDIA_ROOT = tmp_path / "private_media"
     return settings.PRIVATE_MEDIA_ROOT
 
 
 @pytest.fixture(autouse=True)
 def isolated_ebay(settings):
-    """Geen echte eBay-sleutels en een schone cache (tokens, budget) per test."""
+    """No real eBay keys and a clean cache (tokens, budget) for every test."""
     from django.core.cache import cache
 
     settings.EBAY_ENVIRONMENT = "sandbox"
@@ -29,8 +29,8 @@ def isolated_ebay(settings):
     settings.EBAY_CATEGORY_IDS = ""
     settings.EBAY_DAILY_CALL_BUDGET = 4500
     settings.EBAY_CACHE_SECONDS = 3600
-    # Tests draaien met DEBUG=False; dan is een expliciete sleutel verplicht.
-    settings.TOKEN_ENCRYPTION_KEYS = ["dGVzdC1zbGV1dGVsLWFsbGVlbi12b29yLXRlc3RzISE="]
+    # Tests run with DEBUG=False, which requires an explicit key.
+    settings.TOKEN_ENCRYPTION_KEYS = ["dGVzdC1rZXktZm9yLXRlc3RzLW9ubHktbm90LXNlY3I="]
     cache.clear()
     yield
     cache.clear()
@@ -57,7 +57,7 @@ def other_user(db):
 def fee_profile(user):
     return FeeProfile.objects.create(
         user=user,
-        category="Sportkaarten",
+        category="Sports cards",
         commission_percentage=Decimal("13.25"),
         fixed_fee=Decimal("0.35"),
         payment_percentage=Decimal("0.00"),

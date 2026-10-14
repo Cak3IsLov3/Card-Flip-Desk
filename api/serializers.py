@@ -3,16 +3,16 @@ from django.urls import reverse
 from rest_framework import serializers
 
 from finance.calculator import ZERO
-from finance.models import FeeProfile
+from finance.models import DEFAULT_CATEGORY, FeeProfile
 from inventory.models import Card, CardPhoto, PhotoLabel, Purchase
 from sales.models import Listing, ListingStatus, ListingTemplate, Sale
 
 
 class OwnedPrimaryKeyField(serializers.PrimaryKeyRelatedField):
-    """Alleen objecten van de ingelogde gebruiker zijn geldig.
+    """Only objects owned by the logged-in user are valid.
 
-    Een id van een ander geeft dezelfde fout als een id dat niet bestaat,
-    zodat de API niet verraadt welke ids er zijn.
+    Another user's id gives the same error as an id that does not exist, so
+    the API does not reveal which ids exist.
     """
 
     def __init__(self, *, owner_field, **kwargs):
@@ -59,7 +59,7 @@ class PhotoSerializer(serializers.ModelSerializer):
 
 class PhotoUploadSerializer(serializers.Serializer):
     card = owned_card_field()
-    file = serializers.FileField(help_text="JPEG, PNG of WebP; de inhoud wordt gecontroleerd.")
+    file = serializers.FileField(help_text="JPEG, PNG or WebP; the contents are checked.")
     label = serializers.ChoiceField(choices=PhotoLabel.choices, default=PhotoLabel.OTHER)
 
 
@@ -93,7 +93,7 @@ class ListingSerializer(serializers.ModelSerializer):
 
     def validate_status(self, value):
         if value == ListingStatus.SOLD:
-            raise serializers.ValidationError("Gebruik POST /sales/ om een verkoop te registreren.")
+            raise serializers.ValidationError("Use POST /sales/ to record a sale.")
         return value
 
 
@@ -104,7 +104,7 @@ class ListingTemplateSerializer(serializers.ModelSerializer):
 
 
 class GenerateListingSerializer(serializers.Serializer):
-    template = serializers.IntegerField(required=False, help_text="Id van je eigen template; leeg = standaard.")
+    template = serializers.IntegerField(required=False, help_text="Id of one of your templates; empty = default.")
 
 
 class GeneratedListingSerializer(serializers.Serializer):
@@ -118,7 +118,7 @@ class GeneratedListingSerializer(serializers.Serializer):
 class SaleSerializer(serializers.ModelSerializer):
     card = serializers.IntegerField(source="listing.card_id", read_only=True)
     net_proceeds = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
-    # Annotatie uit SaleQuerySet.with_profit(); DecimalField rondt af op centen.
+    # Annotation from SaleQuerySet.with_profit(); DecimalField rounds to cents.
     profit = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
 
     class Meta:
@@ -136,11 +136,11 @@ class SaleCreateSerializer(serializers.Serializer):
     packaging_cost = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=ZERO, default=ZERO)
     sold_at = serializers.DateField()
     buyer_country = serializers.CharField(max_length=2, required=False, default="")
-    category = serializers.CharField(max_length=80, default="Sportkaarten")
+    category = serializers.CharField(max_length=80, default=DEFAULT_CATEGORY)
 
     def validate_card(self, card):
         if card.status == "sold":
-            raise serializers.ValidationError("Deze kaart is al verkocht.")
+            raise serializers.ValidationError("This card has already been sold.")
         return card
 
 

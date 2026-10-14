@@ -14,19 +14,19 @@ TODAY = date(2026, 10, 14)
 
 @pytest.fixture
 def shop(user, other_user, fee_profile, make_card):
-    """Drie verkopen, drie onverkochte kaarten en wat ruis van een ander."""
+    """Three sales, three unsold cards and some noise from another user."""
     a = make_card(user, cost="1.00", player="A", listed_since=date(2026, 9, 1))
-    register_sale(a, sale_price=D("10.00"), sold_at=date(2026, 10, 5))  # winst 7,32; 34 dagen
-    b = make_card(user, cost="20.00", player="B")  # inkoop 2024-05-01, geen 'te koop sinds'
-    register_sale(b, sale_price=D("10.00"), sold_at=date(2026, 8, 10))  # winst -11,68
+    register_sale(a, sale_price=D("10.00"), sold_at=date(2026, 10, 5))  # profit 7.32; 34 days
+    b = make_card(user, cost="20.00", player="B")  # bought 2024-05-01, no 'listed since'
+    register_sale(b, sale_price=D("10.00"), sold_at=date(2026, 8, 10))  # profit -11.68
     c = make_card(user, cost="2.00", player="C", set_name="Prizm", year=2022)
-    register_sale(c, sale_price=D("10.00"), sold_at=date(2025, 1, 10))  # buiten 12 maanden
+    register_sale(c, sale_price=D("10.00"), sold_at=date(2025, 1, 10))  # outside 12 months
 
-    d = make_card(user, cost="5.00", player="D")  # oudste inkoop
+    d = make_card(user, cost="5.00", player="D")  # oldest purchase
     e = make_card(user, player="E", status=CardStatus.FOR_SALE)
     Purchase.objects.create(card=e, price=D("3.00"), date=date(2026, 1, 1))
-    f = make_card(user, player="F")  # geen inkoop
-    make_card(other_user, cost="999.00", player="Ander")
+    f = make_card(user, player="F")  # no purchase
+    make_card(other_user, cost="999.00", player="Other")
     return {"a": a, "b": b, "c": c, "d": d, "e": e, "f": f}
 
 
@@ -44,7 +44,7 @@ def test_totals_all_time(user, shop):
     assert d.start is None
     assert d.sales_count == 3
     assert d.profit == D("1.96")
-    assert d.margin == D("6.5")  # 1,96 / 30,00
+    assert d.margin == D("6.5")  # 1.96 / 30.00
 
 
 def test_unknown_period_falls_back_to_default(user, shop):
@@ -88,7 +88,7 @@ def test_best_worst_fastest_slowest(user, shop):
 
 def test_stock_oldest_first(user, shop):
     d = build_dashboard(user, today=TODAY)
-    assert d.stock_value == D("8.00")  # D 5,00 + E 3,00 + F 0; andermans kaart telt niet
+    assert d.stock_value == D("8.00")  # D 5.00 + E 3.00 + F 0; another user's card does not count
     assert d.stock_count == 3
     assert [c.player for c in d.oldest_stock] == ["D", "E", "F"]
     assert d.oldest_stock[0].age_days == (TODAY - date(2024, 5, 1)).days
@@ -110,16 +110,16 @@ def test_margin_helper():
 
 def test_dashboard_view(user, shop, client_for, django_assert_max_num_queries):
     client = client_for(user)
-    # incl. het blok "Aandacht nodig" en het aanmaken van de drempels bij het eerste bezoek
+    # incl. the "Needs attention" block and creating the thresholds on the first visit
     with django_assert_max_num_queries(20):
-        resp = client.get(reverse("dashboard"), {"periode": "all"})
+        resp = client.get(reverse("dashboard"), {"period": "all"})
     assert resp.status_code == 200
-    data = json.loads(json.dumps(resp.context["chart_data"]))  # moet JSON-serialiseerbaar zijn
+    data = json.loads(json.dumps(resp.context["chart_data"]))  # must be JSON serialisable
     assert data["sets"]["labels"] == ["Prizm 2022", "Topps Chrome 2023"]
     assert data["sets"]["margin"] == ["63.2", "-21.8"]
     assert len(data["months"]["labels"]) == 12
     assert b'id="chart-data"' in resp.content
-    assert b"Ander" not in resp.content
+    assert b"Other" not in resp.content
 
 
 def test_dashboard_requires_login(client, db):

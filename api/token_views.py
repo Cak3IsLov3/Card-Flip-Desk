@@ -1,4 +1,4 @@
-"""Pagina in de app om je API-token te bekijken of te vernieuwen."""
+"""Page in the app to view or renew your API token."""
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -12,10 +12,10 @@ def api_token(request):
         had_token, _ = Token.objects.filter(user=request.user).delete()
         if "create" in request.POST:
             Token.objects.create(user=request.user)
-            note = " Het oude werkt niet meer." if had_token else ""
-            messages.success(request, "Nieuw API-token aangemaakt." + note)
+            note = " The old one no longer works." if had_token else ""
+            messages.success(request, "New API token created." + note)
         else:
-            messages.success(request, "API-token ingetrokken.")
+            messages.success(request, "API token revoked.")
         return redirect("api_token")
     token = Token.objects.filter(user=request.user).first()
     return render(request, "api/token.html", {"token": token})

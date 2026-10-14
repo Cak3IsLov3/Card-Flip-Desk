@@ -40,20 +40,20 @@ def connect(request):
 
 @login_required
 def callback(request):
-    """Accept-URL van de RuName. eBay stuurt `code` en onze `state` terug."""
+    """Accept URL of the RuName. eBay sends back `code` and our `state`."""
     if not oauth.pop_state_matches(request.session, request.GET.get("state")):
-        messages.error(request, "Koppeling afgebroken: ongeldige of verlopen state. Probeer het opnieuw.")
+        messages.error(request, "Connection cancelled: invalid or expired state. Please try again.")
         return redirect("ebay:connection")
     code = request.GET.get("code")
     if not code:
-        messages.error(request, "Je hebt de koppeling met eBay niet goedgekeurd.")
+        messages.error(request, "You did not approve the connection with eBay.")
         return redirect("ebay:connection")
     try:
         oauth.exchange_code(request.user, code)
     except EbayError as exc:
-        messages.error(request, f"Koppelen mislukt: {exc}")
+        messages.error(request, f"Connecting failed: {exc}")
     else:
-        messages.success(request, "eBay-account gekoppeld.")
+        messages.success(request, "eBay account connected.")
     return redirect("ebay:connection")
 
 
@@ -61,5 +61,5 @@ def callback(request):
 @require_POST
 def disconnect(request):
     OAuthToken.objects.filter(user=request.user, provider="ebay").delete()
-    messages.success(request, "eBay-koppeling verwijderd. Trek de toegang ook in via je eBay-account als je wilt.")
+    messages.success(request, "eBay connection removed. You can also revoke access in your eBay account.")
     return redirect("ebay:connection")

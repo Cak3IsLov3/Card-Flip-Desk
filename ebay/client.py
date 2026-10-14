@@ -1,17 +1,17 @@
-"""Client voor de eBay REST API's.
+"""Client for the eBay REST APIs.
 
-- Applicatietoken via de client credentials grant (voor de Browse API),
-  gecachet tot vlak voor het verloopt.
-- Retries met exponentiële backoff bij netwerkfouten, 429 en 5xx; een
-  Retry-After-header gaat voor.
-- Een dagbudget onder de eBay-limiet, zodat de app niet halverwege de dag
-  wordt afgesloten.
-- GET-antwoorden komen in CachedResponse, met ETag (If-None-Match). Is eBay
-  onbereikbaar, dan valt de client terug op het laatst opgehaalde antwoord
-  (gemarkeerd als `stale`).
+- Application token via the client credentials grant (for the Browse API),
+  cached until shortly before it expires.
+- Retries with exponential backoff on network errors, 429 and 5xx; a
+  Retry-After header takes precedence.
+- A daily budget below the eBay limit, so the app is not cut off halfway
+  through the day.
+- GET responses are stored in CachedResponse with their ETag (If-None-Match).
+  If eBay is unreachable, the client falls back to the last response it
+  fetched (marked as `stale`).
 
-`http`, `sleep` en `now` zijn injecteerbaar, zodat tests zonder netwerk en
-zonder wachten draaien.
+`http`, `sleep` and `now` are injectable, so tests run without a network and
+without waiting.
 """
 
 import base64
@@ -39,7 +39,7 @@ HOSTS = {
 APP_SCOPE = "https://api.ebay.com/oauth/api_scope"
 TOKEN_PATH = "/identity/v1/oauth2/token"
 SEARCH_PATH = "/buy/browse/v1/item_summary/search"
-TOKEN_MARGIN_SECONDS = 300  # token vijf minuten vóór het verloopt vernieuwen
+TOKEN_MARGIN_SECONDS = 300  # renew a token five minutes before it expires
 
 
 class EbayError(Exception):
@@ -51,7 +51,7 @@ class EbayNotConfigured(EbayError):
 
 
 class EbayUnavailable(EbayError):
-    """eBay is (tijdelijk) niet bereikbaar of geeft serverfouten."""
+    """eBay is (temporarily) unreachable or returning server errors."""
 
 
 class EbayRateLimited(EbayUnavailable):
@@ -60,7 +60,7 @@ class EbayRateLimited(EbayUnavailable):
 
 class EbayAPIError(EbayError):
     def __init__(self, status: int, body: str):
-        super().__init__(f"eBay gaf HTTP {status}: {body[:300]}")
+        super().__init__(f"eBay returned HTTP {status}: {body[:300]}")
         self.status = status
         self.body = body
 
@@ -70,7 +70,7 @@ class ApiResult:
     data: dict
     fetched_at: datetime
     from_cache: bool = False
-    stale: bool = False  # True = eBay was onbereikbaar, dit is een oudere kopie
+    stale: bool = False  # True = eBay was unreachable, this is an older copy
 
 
 class EbayClient:
@@ -88,7 +88,7 @@ class EbayClient:
     ):
         self.environment = environment or settings.EBAY_ENVIRONMENT
         if self.environment not in HOSTS:
-            raise EbayNotConfigured(f"Onbekende EBAY_ENVIRONMENT: {self.environment}")
+            raise EbayNotConfigured(f"Unknown EBAY_ENVIRONMENT: {self.environment}")
         self.client_id = client_id if client_id is not None else settings.EBAY_CLIENT_ID
         self.client_secret = client_secret if client_secret is not None else settings.EBAY_CLIENT_SECRET
         self.http = http or httpx.Client(timeout=10.0)
@@ -122,7 +122,7 @@ class EbayClient:
 
     def app_token(self, *, force: bool = False) -> str:
         if not self.configured:
-            raise EbayNotConfigured("EBAY_CLIENT_ID en EBAY_CLIENT_SECRET zijn niet ingesteld.")
+            raise EbayNotConfigured("EBAY_CLIENT_ID and EBAY_CLIENT_SECRET are not set.")
         key = self._app_token_key()
         if not force and (token := cache.get(key)):
             return token
@@ -132,7 +132,7 @@ class EbayClient:
         return payload["access_token"]
 
     def token_request(self, form: dict) -> dict:
-        """POST naar het token-endpoint (alle grant types)."""
+        """POST to the token endpoint (all grant types)."""
         response = self._send(
             "POST",
             self.api_base + TOKEN_PATH,
@@ -141,13 +141,13 @@ class EbayClient:
                 "Content-Type": "application/x-www-form-urlencoded",
             },
             data=form,
-            count_towards_budget=False,  # tokens hebben een eigen eBay-limiet
+            count_towards_budget=False,  # tokens have their own eBay limit
         )
         if response.status_code >= 400:
             raise EbayAPIError(response.status_code, response.text)
         return response.json()
 
-    # --- HTTP met retries en budget -----------------------------------------
+    # --- HTTP with retries and budget --------------------------------------
 
     def _budget_key(self) -> str:
         return f"ebay:calls:{self.environment}:{self.now().date().isoformat()}"
@@ -158,7 +158,7 @@ class EbayClient:
         used = cache.incr(key)
         if used > settings.EBAY_DAILY_CALL_BUDGET:
             raise EbayRateLimited(
-                f"Dagbudget van {settings.EBAY_DAILY_CALL_BUDGET} eBay-calls is op; morgen weer."
+                f"The daily budget of {settings.EBAY_DAILY_CALL_BUDGET} eBay calls is used up; try again tomorrow."
             )
 
     def calls_today(self) -> int:
@@ -172,13 +172,13 @@ class EbayClient:
             try:
                 response = self.http.request(method, url, headers=headers, params=params, data=data)
             except httpx.TransportError as exc:
-                last_error = EbayUnavailable(f"Geen verbinding met eBay: {exc.__class__.__name__}")
+                last_error = EbayUnavailable(f"Could not connect to eBay: {exc.__class__.__name__}")
                 retry_after = None
             else:
                 if response.status_code == 429:
-                    last_error = EbayRateLimited("eBay meldt te veel verzoeken (HTTP 429).")
+                    last_error = EbayRateLimited("eBay reports too many requests (HTTP 429).")
                 elif response.status_code >= 500:
-                    last_error = EbayUnavailable(f"eBay gaf HTTP {response.status_code}.")
+                    last_error = EbayUnavailable(f"eBay returned HTTP {response.status_code}.")
                 else:
                     return response
                 retry_after = _retry_after_seconds(response)
@@ -186,15 +186,15 @@ class EbayClient:
             if attempt == self.max_retries:
                 break
             delay = retry_after if retry_after is not None else self._backoff(attempt)
-            log.warning("eBay-verzoek mislukt (%s), poging %s; opnieuw over %.1fs", last_error, attempt + 1, delay)
+            log.warning("eBay request failed (%s), attempt %s; retrying in %.1fs", last_error, attempt + 1, delay)
             self.sleep(delay)
         raise last_error
 
     def _backoff(self, attempt: int) -> float:
-        # 0,5 s, 1 s, 2 s, ... met wat spreiding zodat herhaalpogingen niet samenvallen
+        # 0.5 s, 1 s, 2 s, ... with some jitter so retries do not line up
         return self.backoff_seconds * (2**attempt) * random.uniform(0.8, 1.2)
 
-    # --- GET met cache en ETag ----------------------------------------------
+    # --- GET with cache and ETag -------------------------------------------
 
     def get_json(self, path: str, params: dict, *, ttl_seconds: int | None = None) -> ApiResult:
         ttl = timedelta(seconds=settings.EBAY_CACHE_SECONDS if ttl_seconds is None else ttl_seconds)
@@ -242,14 +242,14 @@ class EbayClient:
         url = self.api_base + path
         response = self._send("GET", url, headers=headers(self.app_token()), params=params)
         if response.status_code == 401:
-            # Token ingetrokken of eerder verlopen dan gedacht: één keer opnieuw.
+            # Token revoked or expired earlier than expected: try once more.
             response = self._send("GET", url, headers=headers(self.app_token(force=True)), params=params)
         return response
 
     # --- Browse API ---------------------------------------------------------
 
     def search_items(self, query: str, *, limit: int = 50, category_ids: str = "") -> ApiResult:
-        """Actieve vaste-prijslistings (de Browse-standaard)."""
+        """Active fixed-price listings (the Browse default)."""
         params = {"q": query, "limit": str(min(max(limit, 1), 200))}
         if category_ids:
             params["category_ids"] = category_ids
@@ -261,6 +261,6 @@ def _retry_after_seconds(response) -> float | None:
     if not value:
         return None
     try:
-        return min(float(value), 10.0)  # een webverzoek niet langer laten wachten
+        return min(float(value), 10.0)  # do not keep a web request waiting longer
     except ValueError:
         return None

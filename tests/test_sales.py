@@ -35,7 +35,7 @@ def test_sale_uses_profile_valid_on_sale_date(user, fee_profile, make_card):
     )
     before = register_sale(make_card(user), sale_price=D("10.00"), sold_at=date(2025, 5, 31))
     after = register_sale(make_card(user), sale_price=D("10.00"), sold_at=date(2025, 6, 1))
-    assert before.ebay_commission == D("1.68")  # 13,25% + 0,35
+    assert before.ebay_commission == D("1.68")  # 13.25% + 0.35
     assert after.ebay_commission == D("2.00")  # 20%
 
 
@@ -78,7 +78,7 @@ def test_sale_view(user, fee_profile, make_card, client_for):
             "packaging_cost": "0.30",
             "sold_at": "2025-04-02",
             "buyer_country": "de",
-            "category": "Sportkaarten",
+            "category": "Sports cards",
         },
     )
     assert resp.status_code == 302

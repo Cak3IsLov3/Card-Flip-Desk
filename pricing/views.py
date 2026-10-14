@@ -9,7 +9,7 @@ from .advice import build_advice, search_query
 
 @login_required
 def card_advice(request, card_pk):
-    """GET toont eigen historie en eerdere momentopnames; POST haalt eBay op."""
+    """GET shows own history and earlier snapshots; POST fetches from eBay."""
     card = get_object_or_404(Card, pk=card_pk, owner=request.user)
     fetch = request.method == "POST"
     query = request.POST.get("q") if fetch else None

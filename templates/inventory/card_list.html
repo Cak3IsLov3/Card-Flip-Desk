@@ -1,18 +1,18 @@
 {% extends "base.html" %}
 {% load money %}
-{% block title %}Voorraad – Card Flip Desk{% endblock %}
+{% block title %}Inventory – Card Flip Desk{% endblock %}
 {% block content %}
-<h1>Voorraad</h1>
+<h1>Inventory</h1>
 <div class="stats">
-  <div class="stat"><div class="label">Voorraadwaarde (inkoop)</div><div class="value">{{ inventory_value|euro }}</div></div>
+  <div class="stat"><div class="label">Inventory value (cost)</div><div class="value">{{ inventory_value|euro }}</div></div>
   {% for label, n in counts.items %}
   <div class="stat"><div class="label">{{ label }}</div><div class="value">{{ n }}</div></div>
   {% endfor %}
 </div>
 
 <div class="actions">
-  <a class="button" href="{% url 'inventory:card_create' %}">Kaart toevoegen</a>
-  <a class="button secondary" href="{% url 'inventory:csv_upload' %}">CSV importeren</a>
+  <a class="button" href="{% url 'inventory:card_create' %}">Add card</a>
+  <a class="button secondary" href="{% url 'inventory:csv_upload' %}">Import CSV</a>
 </div>
 
 <form class="filters" hx-get="{% url 'inventory:card_list' %}" hx-target="#card-table"
@@ -20,15 +20,15 @@
   {% for field in filter_form %}
   <div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}</div>
   {% endfor %}
-  <noscript><button>Filteren</button></noscript>
+  <noscript><button>Filter</button></noscript>
 </form>
 
 <div id="card-table">{% include "inventory/_card_table.html" %}</div>
 
 {% if per_set %}
-<h2>Kaarten per set (onverkocht)</h2>
+<h2>Cards per set (unsold)</h2>
 <div class="table-wrap"><table>
-  <thead><tr><th>Set</th><th>Jaar</th><th class="num">Aantal</th></tr></thead>
+  <thead><tr><th>Set</th><th>Year</th><th class="num">Count</th></tr></thead>
   <tbody>{% for row in per_set %}<tr><td>{{ row.set_name }}</td><td>{{ row.year }}</td><td class="num">{{ row.n }}</td></tr>{% endfor %}</tbody>
 </table></div>
 {% endif %}

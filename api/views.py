@@ -1,14 +1,13 @@
 """REST API (DRF).
 
-Twee lagen toegangscontrole:
-1. Elke queryset is gefilterd op de ingelogde gebruiker, dus andermans
-   objecten bestaan voor de API niet (404, geen 403).
-2. `IsOwner` controleert het object nog eens, voor het geval een nieuwe
-   view de filter vergeet.
-Verwijzingen naar kaarten of profielen in de invoer accepteren alleen eigen
-objecten (zie `OwnedPrimaryKeyField`).
+Two layers of access control:
+1. Every queryset is filtered on the logged-in user, so other users' objects
+   do not exist as far as the API is concerned (404, not 403).
+2. `IsOwner` checks the object again, in case a new view forgets the filter.
+References to cards or profiles in the input only accept your own objects
+(see `OwnedPrimaryKeyField`).
 
-Bedrijfsregels zitten in de bestaande services; de API roept ze aan.
+Business rules live in the existing services; the API calls them.
 """
 
 from django.db.models import Prefetch
@@ -36,7 +35,7 @@ from . import serializers as s
 
 
 class IsOwner(permissions.BasePermission):
-    """Vangnet naast de gefilterde querysets."""
+    """Safety net next to the filtered querysets."""
 
     def has_object_permission(self, request, view, obj):
         return view.owner_of(obj) == request.user
@@ -44,7 +43,7 @@ class IsOwner(permissions.BasePermission):
 
 class OwnedViewSetMixin:
     permission_classes = [permissions.IsAuthenticated, IsOwner]
-    owner_path: str  # bv. "owner" of "card__owner"
+    owner_path: str  # e.g. "owner" or "card__owner"
 
     def owner_of(self, obj):
         for part in self.owner_path.split("__"):
@@ -52,19 +51,19 @@ class OwnedViewSetMixin:
         return obj
 
     def owned(self, qs):
-        if getattr(self, "swagger_fake_view", False):  # schema-generatie, geen echte gebruiker
+        if getattr(self, "swagger_fake_view", False):  # schema generation, no real user
             return qs.none()
         return qs.filter(**{self.owner_path: self.request.user})
 
 
-# --- kaarten -----------------------------------------------------------------
+# --- cards -------------------------------------------------------------------
 
 @extend_schema_view(
     list=extend_schema(
         parameters=[
-            OpenApiParameter("q", str, description="Zoek in speler, set, nummer en notities"),
+            OpenApiParameter("q", str, description="Search player, set, number and notes"),
             OpenApiParameter("status", str, enum=[c.value for c in CardStatus]),
-            OpenApiParameter("set_name", str, description="Deel van de setnaam"),
+            OpenApiParameter("set_name", str, description="Part of the set name"),
             OpenApiParameter("year", int),
         ]
     )
@@ -93,7 +92,7 @@ class CardViewSet(OwnedViewSetMixin, viewsets.ModelViewSet):
     @extend_schema(request=s.GenerateListingSerializer, responses=s.GeneratedListingSerializer)
     @action(detail=True, methods=["post"], url_path="generate-listing")
     def generate_listing(self, request, pk=None):
-        """Titel en beschrijving uit een template, met controles (lengte, velden, foto's)."""
+        """Title and description from a template, with checks (length, fields, photos)."""
         card = self.get_object()
         params = s.GenerateListingSerializer(data=request.data)
         params.is_valid(raise_exception=True)
@@ -119,11 +118,11 @@ class PurchaseViewSet(OwnedViewSetMixin, viewsets.ModelViewSet):
         return qs.order_by("-date", "-id")
 
 
-# --- foto's ------------------------------------------------------------------
+# --- photos ------------------------------------------------------------------
 
 @extend_schema_view(
     create=extend_schema(request={"multipart/form-data": s.PhotoUploadSerializer}, responses={201: s.PhotoSerializer}),
-    partial_update=extend_schema(description="Alleen `label` is aan te passen."),
+    partial_update=extend_schema(description="Only `label` can be changed."),
 )
 class PhotoViewSet(
     OwnedViewSetMixin,
@@ -165,13 +164,13 @@ class PhotoViewSet(
         photo.refresh_from_db()
         return Response(self.get_serializer(photo).data)
 
-    @extend_schema(responses={(200, "image/*"): OpenApiResponse(description="Het beeldbestand")})
+    @extend_schema(responses={(200, "image/*"): OpenApiResponse(description="The image file")})
     @action(detail=True, methods=["get"])
     def file(self, request, pk=None):
         photo = self.get_object()
         return self._serve(photo.image, photo.content_type)
 
-    @extend_schema(responses={(200, "image/*"): OpenApiResponse(description="De thumbnail")})
+    @extend_schema(responses={(200, "image/*"): OpenApiResponse(description="The thumbnail")})
     @action(detail=True, methods=["get"])
     def thumbnail(self, request, pk=None):
         photo = self.get_object()
@@ -186,7 +185,7 @@ class PhotoViewSet(
         return response
 
 
-# --- listings, templates, verkopen ------------------------------------------
+# --- listings, templates, sales ---------------------------------------------
 
 class ListingViewSet(OwnedViewSetMixin, viewsets.ModelViewSet):
     serializer_class = s.ListingSerializer
@@ -200,12 +199,12 @@ class ListingViewSet(OwnedViewSetMixin, viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         if serializer.instance.status == ListingStatus.SOLD:
-            raise ValidationError("Een verkochte listing kan niet meer worden gewijzigd.")
+            raise ValidationError("A sold listing can no longer be changed.")
         serializer.save()
 
     def perform_destroy(self, listing):
         if listing.status == ListingStatus.SOLD:
-            raise ValidationError("Een verkochte listing hoort bij een verkoop en kan niet weg.")
+            raise ValidationError("A sold listing belongs to a sale and cannot be deleted.")
         listing.delete()
 
 
@@ -220,13 +219,13 @@ class ListingTemplateViewSet(OwnedViewSetMixin, viewsets.ModelViewSet):
         for field in ("title_pattern", "description_pattern"):
             unknown = gen.unknown_placeholders(serializer.validated_data.get(field, ""))
             if unknown:
-                raise ValidationError({field: ["Onbekende plaatshouder(s): " + ", ".join(unknown)]})
+                raise ValidationError({field: ["Unknown placeholder(s): " + ", ".join(unknown)]})
         name = serializer.validated_data.get("name")
         clash = ListingTemplate.objects.filter(user=self.request.user, name__iexact=name)
         if serializer.instance:
             clash = clash.exclude(pk=serializer.instance.pk)
         if name and clash.exists():
-            raise ValidationError({"name": ["Je hebt al een template met deze naam."]})
+            raise ValidationError({"name": ["You already have a template with this name."]})
 
     def perform_create(self, serializer):
         self._validate(serializer)
@@ -240,7 +239,7 @@ class ListingTemplateViewSet(OwnedViewSetMixin, viewsets.ModelViewSet):
 @extend_schema_view(create=extend_schema(request=s.SaleCreateSerializer, responses={201: s.SaleSerializer}))
 class SaleViewSet(OwnedViewSetMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin,
                   mixins.CreateModelMixin, viewsets.GenericViewSet):
-    """Verkopen. Aanmaken rekent de kosten uit met het geldende kostenprofiel."""
+    """Sales. Creating one calculates the fees with the fee profile in force."""
 
     serializer_class = s.SaleSerializer
     owner_path = "listing__card__owner"
@@ -283,7 +282,7 @@ def _result(result, price=None):
 
 class CalculatorView(APIView):
     @extend_schema(request=s.ForwardCalculatorSerializer, responses=s.CalculatorResultSerializer,
-                   summary="Winst bij een verkoopprijs")
+                   summary="Profit at a sale price")
     def post(self, request):
         inp = s.ForwardCalculatorSerializer(data=request.data, context={"request": request})
         inp.is_valid(raise_exception=True)
@@ -294,7 +293,7 @@ class CalculatorView(APIView):
 
 class ReverseCalculatorView(APIView):
     @extend_schema(request=s.ReverseCalculatorSerializer, responses=s.CalculatorResultSerializer,
-                   summary="Laagste vraagprijs voor een gewenste winst")
+                   summary="Lowest asking price for a target profit")
     def post(self, request):
         inp = s.ReverseCalculatorSerializer(data=request.data, context={"request": request})
         inp.is_valid(raise_exception=True)
@@ -309,7 +308,7 @@ class ReverseCalculatorView(APIView):
 
 
 class TokenView(ObtainAuthToken):
-    """Wissel gebruikersnaam en wachtwoord in voor een API-token (max. 10 per minuut)."""
+    """Exchange username and password for an API token (max. 10 per minute)."""
 
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "token"

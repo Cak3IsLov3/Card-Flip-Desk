@@ -1,14 +1,14 @@
-/* Grafieken voor het dashboard (Chart.js).
+/* Dashboard charts (Chart.js).
  *
- * Kleuren komen uit CSS-variabelen, zodat licht en donker hun eigen,
- * vooraf gecontroleerde stappen gebruiken. Eén y-as per grafiek.
+ * Colours come from CSS variables, so light and dark mode use their own,
+ * pre-validated steps. One y-axis per chart.
  */
 (function () {
   const dataEl = document.getElementById("chart-data");
   if (!dataEl || !window.Chart) return;
   const data = JSON.parse(dataEl.textContent);
-  const euro = new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" });
-  const pct = new Intl.NumberFormat("nl-NL", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const euro = new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR" });
+  const pct = new Intl.NumberFormat("en-GB", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   const num = (xs) => xs.map(Number);
 
   function tokens() {
@@ -26,7 +26,7 @@
       maintainAspectRatio: false,
       animation: false,
       plugins: {
-        legend: { display: false }, // eigen HTML-legenda boven de grafiek
+        legend: { display: false }, // our own HTML legend above the chart
         tooltip: {
           backgroundColor: t.panel, titleColor: t.muted, bodyColor: t.text,
           borderColor: t.line, borderWidth: 1, padding: 10, boxPadding: 4,
@@ -56,8 +56,8 @@
       data: {
         labels: data.months.labels,
         datasets: [
-          { ...bar, label: "Omzet", data: num(data.months.revenue), backgroundColor: t.s1 },
-          { ...bar, label: "Winst", data: num(data.months.profit), backgroundColor: t.s2 },
+          { ...bar, label: "Revenue", data: num(data.months.revenue), backgroundColor: t.s1 },
+          { ...bar, label: "Profit", data: num(data.months.profit), backgroundColor: t.s2 },
         ],
       },
       options: opts,
@@ -74,15 +74,15 @@
     opts.scales.x.ticks.callback = (v) => `${pct.format(v)}%`;
     opts.scales.y.grid = { display: false };
     opts.plugins.tooltip.callbacks = {
-      label: (c) => ` ${pct.format(c.parsed.x)}% marge`,
-      afterLabel: (c) => ` ${euro.format(profit[c.dataIndex])} winst`,
+      label: (c) => ` ${pct.format(c.parsed.x)}% margin`,
+      afterLabel: (c) => ` ${euro.format(profit[c.dataIndex])} profit`,
     };
     charts.push(new Chart(el, {
       type: "bar",
       data: {
         labels: data.sets.labels,
         datasets: [{
-          label: "Marge", data: num(data.sets.margin), backgroundColor: t.s1,
+          label: "Margin", data: num(data.sets.margin), backgroundColor: t.s1,
           borderRadius: 4, borderSkipped: "start", borderWidth: 0, maxBarThickness: 18,
         }],
       },

@@ -6,7 +6,7 @@ app_name = "ebay"
 
 urlpatterns = [
     path("", views.connection, name="connection"),
-    path("koppelen/", views.connect, name="connect"),
+    path("connect/", views.connect, name="connect"),
     path("callback/", views.callback, name="callback"),
-    path("ontkoppelen/", views.disconnect, name="disconnect"),
+    path("disconnect/", views.disconnect, name="disconnect"),
 ]

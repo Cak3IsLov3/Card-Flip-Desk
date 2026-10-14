@@ -47,7 +47,7 @@ def fee_profile_list(request):
         profile = form.save(commit=False)
         profile.user = request.user
         profile.save()
-        messages.success(request, f"Kostenprofiel opgeslagen: {profile}")
+        messages.success(request, f"Fee profile saved: {profile}")
         return redirect("finance:fee_profiles")
     return render(
         request,
@@ -63,10 +63,10 @@ def fee_profile_edit(request, pk):
     if request.method == "POST":
         if "delete" in request.POST:
             profile.delete()
-            messages.success(request, "Kostenprofiel verwijderd.")
+            messages.success(request, "Fee profile deleted.")
             return redirect("finance:fee_profiles")
         if form.is_valid():
             form.save()
-            messages.success(request, "Kostenprofiel bijgewerkt.")
+            messages.success(request, "Fee profile updated.")
             return redirect("finance:fee_profiles")
     return render(request, "finance/fee_profile_edit.html", {"form": form, "profile": profile})

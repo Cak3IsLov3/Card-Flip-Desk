@@ -31,16 +31,16 @@ class CalculatorForm(forms.Form):
     MODE_REVERSE = "reverse"
 
     mode = forms.ChoiceField(
-        choices=[(MODE_FORWARD, "Winst bij een prijs"), (MODE_REVERSE, "Prijs voor een winst")],
+        choices=[(MODE_FORWARD, "Profit at a price"), (MODE_REVERSE, "Price for a profit")],
         initial=MODE_FORWARD,
         widget=forms.RadioSelect,
-        label="Berekening",
+        label="Calculate",
     )
     fee_profile = forms.ModelChoiceField(
-        queryset=FeeProfile.objects.none(), label="Kostenprofiel", empty_label=None
+        queryset=FeeProfile.objects.none(), label="Fee profile", empty_label=None
     )
     sale_price = forms.DecimalField(
-        label="Verkoopprijs",
+        label="Sale price",
         max_digits=10,
         decimal_places=2,
         min_value=ZERO,
@@ -48,16 +48,16 @@ class CalculatorForm(forms.Form):
         widget=forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
     )
     target_profit = forms.DecimalField(
-        label="Gewenste winst",
+        label="Target profit",
         max_digits=10,
         decimal_places=2,
         required=False,
         widget=forms.NumberInput(attrs={"step": "0.01"}),
     )
-    shipping_income = money_field("Verzendopbrengst")
-    shipping_cost = money_field("Verzendkosten")
-    packaging_cost = money_field("Verpakkingskosten")
-    purchase_cost = money_field("Inkoopkosten")
+    shipping_income = money_field("Shipping charged")
+    shipping_cost = money_field("Shipping cost")
+    packaging_cost = money_field("Packaging cost")
+    purchase_cost = money_field("Purchase cost")
 
     def __init__(self, user, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -70,7 +70,7 @@ class CalculatorForm(forms.Form):
                 cleaned[name] = ZERO
         mode = cleaned.get("mode")
         if mode == self.MODE_FORWARD and cleaned.get("sale_price") is None:
-            self.add_error("sale_price", "Vul een verkoopprijs in.")
+            self.add_error("sale_price", "Enter a sale price.")
         if mode == self.MODE_REVERSE and cleaned.get("target_profit") is None:
-            self.add_error("target_profit", "Vul de gewenste winst in.")
+            self.add_error("target_profit", "Enter the target profit.")
         return cleaned

@@ -58,7 +58,7 @@ def test_list_filters_and_totals(user, other_user, make_card, client_for):
 
     client = client_for(user)
     resp = client.get(reverse("inventory:card_list"))
-    assert resp.context["inventory_value"] == D("5.00")  # verkocht en andermans kaarten tellen niet
+    assert resp.context["inventory_value"] == D("5.00")  # sold cards and other users' cards do not count
     assert len(resp.context["page"].object_list) == 2
 
     resp = client.get(reverse("inventory:card_list"), {"q": "haal"}, HTTP_HX_REQUEST="true")
@@ -84,7 +84,7 @@ def test_list_filters_and_totals(user, other_user, make_card, client_for):
 def test_other_user_cannot_see_or_change_card(name, method, user, other_user, make_card, client_for):
     card = make_card(user, cost="5.00")
     client = client_for(other_user)
-    resp = getattr(client, method)(reverse(name, args=[card.pk]), {"player": "Gestolen", "price": "1"})
+    resp = getattr(client, method)(reverse(name, args=[card.pk]), {"player": "Stolen", "price": "1"})
     assert resp.status_code == 404
     card.refresh_from_db()
     assert card.player == "Erling Haaland"
@@ -122,7 +122,7 @@ def test_fee_profiles_are_private(user, other_user, fee_profile, client_for):
 def test_signup_creates_starter_fee_profile(client, db):
     resp = client.post(
         reverse("signup"),
-        {"username": "carla", "password1": "een-lang-wachtwoord-42", "password2": "een-lang-wachtwoord-42"},
+        {"username": "carla", "password1": "a-long-password-42", "password2": "a-long-password-42"},
     )
     assert resp.status_code == 302
     from finance.models import FeeProfile

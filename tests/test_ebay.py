@@ -47,7 +47,7 @@ def token_route(respx_mock):
     return respx_mock.post(TOKEN_URL).mock(return_value=httpx.Response(200, json=token_json()))
 
 
-# --- applicatietoken ---------------------------------------------------------
+# --- application token -------------------------------------------------------
 
 def test_not_configured_raises(settings):
     with pytest.raises(EbayNotConfigured):
@@ -57,7 +57,7 @@ def test_not_configured_raises(settings):
 def test_app_token_request_and_caching(client, token_route):
     assert client.app_token() == "app-token-1"
     assert client.app_token() == "app-token-1"
-    assert token_route.call_count == 1  # tweede keer uit de cache
+    assert token_route.call_count == 1  # second time from the cache
 
     request = token_route.calls[0].request
     expected = "Basic " + base64.b64encode(b"test-client-id:test-client-secret").decode()
@@ -71,7 +71,7 @@ def test_app_token_is_renewed_before_expiry(client, respx_mock):
         side_effect=[httpx.Response(200, json=token_json("t1", 400)), httpx.Response(200, json=token_json("t2"))]
     )
     assert client.app_token() == "t1"
-    # 400 s geldig - 300 s marge = 100 s in de cache; daarna is hij weg.
+    # 400 s valid - 300 s margin = 100 s in the cache; after that it is gone.
     cache.delete(client._app_token_key())
     assert client.app_token() == "t2"
     assert route.call_count == 2
@@ -84,7 +84,7 @@ def test_invalid_credentials_give_api_error(client, respx_mock):
     assert exc.value.status == 401
 
 
-# --- zoeken, cache en ETag ---------------------------------------------------
+# --- search, cache and ETag ----------------------------------------------------
 
 def test_search_sends_headers_and_caches_with_etag(client, token_route, respx_mock):
     route = respx_mock.get(SEARCH_URL).mock(
@@ -100,7 +100,7 @@ def test_search_sends_headers_and_caches_with_etag(client, token_route, respx_mo
     assert cached.etag == '"abc"' and cached.data["total"] == 1
 
     again = client.search_items("2023 Topps Chrome Haaland")
-    assert again.from_cache and route.call_count == 1  # binnen de TTL geen call
+    assert again.from_cache and route.call_count == 1  # no call within the TTL
 
 
 def test_expired_cache_revalidates_with_etag_304(client, token_route, respx_mock):
@@ -133,7 +133,7 @@ def test_5xx_is_retried_with_growing_backoff(client, token_route, respx_mock, sl
     )
     client.search_items("x")
     assert len(sleeps) == 3
-    assert sleeps[0] < sleeps[1] < sleeps[2]  # 0,5 → 1 → 2 s (met spreiding)
+    assert sleeps[0] < sleeps[1] < sleeps[2]  # 0.5 → 1 → 2 s (with jitter)
 
 
 def test_persistent_failure_raises_unavailable(client, token_route, respx_mock, sleeps):
@@ -174,25 +174,25 @@ def test_daily_budget_stops_calls(client, token_route, respx_mock, settings):
     route = respx_mock.get(SEARCH_URL).mock(return_value=httpx.Response(200, json={}))
     client.search_items("a")
     client.search_items("b")
-    with pytest.raises(EbayRateLimited, match="Dagbudget"):
+    with pytest.raises(EbayRateLimited, match="daily budget"):
         client.search_items("c")
     assert route.call_count == 2
     assert client.calls_today() == 3
 
 
-# --- versleuteling -----------------------------------------------------------
+# --- encryption ----------------------------------------------------------------
 
 def test_tokens_are_encrypted_at_rest(user):
     token = OAuthToken.objects.create(
-        user=user, environment="sandbox", access_token="geheim-access", refresh_token="geheim-refresh",
+        user=user, environment="sandbox", access_token="secret-access", refresh_token="secret-refresh",
         expires_at=timezone.now(),
     )
     with connection.cursor() as cur:
         cur.execute("SELECT access_token, refresh_token FROM ebay_oauthtoken WHERE id = %s", [token.pk])
         raw_access, raw_refresh = cur.fetchone()
-    assert "geheim" not in raw_access and "geheim" not in raw_refresh
+    assert "secret" not in raw_access and "secret" not in raw_refresh
     token.refresh_from_db()
-    assert token.access_token == "geheim-access"
+    assert token.access_token == "secret-access"
 
 
 def test_key_rotation(settings):
@@ -200,9 +200,9 @@ def test_key_rotation(settings):
 
     old, new = Fernet.generate_key().decode(), Fernet.generate_key().decode()
     settings.TOKEN_ENCRYPTION_KEYS = [old]
-    encrypted = crypto.encrypt("waarde")
+    encrypted = crypto.encrypt("value")
     settings.TOKEN_ENCRYPTION_KEYS = [new, old]
-    assert crypto.decrypt(encrypted) == "waarde"
+    assert crypto.decrypt(encrypted) == "value"
     settings.TOKEN_ENCRYPTION_KEYS = [new]
     with pytest.raises(ValueError):
         crypto.decrypt(encrypted)
@@ -218,13 +218,13 @@ def test_production_requires_encryption_key(settings):
 # --- Authorization Code Flow -------------------------------------------------
 
 def test_authorize_url(client):
-    url = urlparse(oauth.authorize_url(client, "staat123"))
+    url = urlparse(oauth.authorize_url(client, "state123"))
     q = parse_qs(url.query)
     assert url.netloc == "auth.sandbox.ebay.com" and url.path == "/oauth2/authorize"
     assert q["client_id"] == ["test-client-id"]
     assert q["redirect_uri"] == ["Test_RuName-123"]
     assert q["response_type"] == ["code"]
-    assert q["state"] == ["staat123"]
+    assert q["state"] == ["state123"]
     assert "sell.inventory.readonly" in q["scope"][0]
 
 
@@ -253,8 +253,8 @@ def test_callback_rejects_wrong_or_reused_state(user, ebay_keys, client_for, res
     route = respx_mock.post(TOKEN_URL).mock(return_value=httpx.Response(200, json=token_json()))
     client = client_for(user)
     state = parse_qs(urlparse(client.post(reverse("ebay:connect")).url).query)["state"][0]
-    client.get(reverse("ebay:callback"), {"state": "vervalst", "code": "x"})
-    client.get(reverse("ebay:callback"), {"state": state, "code": "x"})  # state is al verbruikt
+    client.get(reverse("ebay:callback"), {"state": "forged", "code": "x"})
+    client.get(reverse("ebay:callback"), {"state": state, "code": "x"})  # state has already been used
     assert route.call_count == 0
     assert not OAuthToken.objects.exists()
 
@@ -284,7 +284,7 @@ def test_user_token_refreshed_shortly_before_expiry(user, client, respx_mock):
     form = parse_qs(route.calls[0].request.content.decode())
     assert form["grant_type"] == ["refresh_token"] and form["refresh_token"] == ["refresh-1"]
     token = OAuthToken.objects.get()
-    assert token.refresh_token == "refresh-1"  # blijft staan als eBay geen nieuwe meestuurt
+    assert token.refresh_token == "refresh-1"  # kept when eBay does not send a new one
     assert token.expires_at > timezone.now() + timedelta(minutes=100)
 
 

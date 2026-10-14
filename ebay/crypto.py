@@ -1,10 +1,9 @@
-"""Versleuteling van tokens in de database (Fernet: AES-128-CBC + HMAC).
+"""Encryption of tokens in the database (Fernet: AES-128-CBC + HMAC).
 
-Sleutels komen uit `TOKEN_ENCRYPTION_KEYS`. De eerste sleutel versleutelt,
-alle sleutels mogen ontsleutelen, zodat je kunt roteren zonder dat oude
-tokens onleesbaar worden. Alleen in DEBUG wordt bij gebrek aan een sleutel
-er een afgeleid van SECRET_KEY, zodat lokaal ontwikkelen zonder extra stap
-werkt.
+Keys come from `TOKEN_ENCRYPTION_KEYS`. The first key encrypts, every key may
+decrypt, so you can rotate keys without old tokens becoming unreadable. Only
+in DEBUG, when no key is set, one is derived from SECRET_KEY so local
+development works without an extra step.
 """
 
 import base64
@@ -24,7 +23,7 @@ def _fernet() -> MultiFernet:
     keys = list(settings.TOKEN_ENCRYPTION_KEYS)
     if not keys:
         if not settings.DEBUG:
-            raise ImproperlyConfigured("TOKEN_ENCRYPTION_KEYS ontbreekt; tokens kunnen niet veilig worden opgeslagen.")
+            raise ImproperlyConfigured("TOKEN_ENCRYPTION_KEYS is not set; tokens cannot be stored safely.")
         digest = hashlib.sha256(("card-flip-desk-tokens:" + settings.SECRET_KEY).encode()).digest()
         keys = [base64.urlsafe_b64encode(digest).decode()]
     return MultiFernet([Fernet(k) for k in keys])
@@ -44,11 +43,11 @@ def decrypt(token: str) -> str:
     try:
         return _fernet().decrypt(token.encode()).decode()
     except InvalidToken:
-        raise ValueError("Token kan niet worden ontsleuteld (verkeerde of ontbrekende sleutel).") from None
+        raise ValueError("Token cannot be decrypted (wrong or missing key).") from None
 
 
 class EncryptedTextField(models.TextField):
-    """Tekstveld dat versleuteld in de database staat. Niet doorzoekbaar."""
+    """Text field stored encrypted in the database. Not searchable."""
 
     def get_prep_value(self, value):
         value = super().get_prep_value(value)

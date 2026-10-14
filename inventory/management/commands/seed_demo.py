@@ -1,22 +1,26 @@
-"""Maakt een demo-account met voorbeeldkaarten, alleen voor lokale ontwikkeling.
+"""Create a demo account with sample cards, for local development only.
 
     python manage.py seed_demo
 """
 
+import io
 from datetime import date, timedelta
 from decimal import Decimal as D
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management.base import BaseCommand, CommandError
+from PIL import Image, ImageDraw, ImageFont
 
-from finance.models import FeeProfile
-from inventory.models import Card, CardStatus, Purchase
+from finance.models import DEFAULT_CATEGORY, FeeProfile
+from inventory import photos
+from inventory.models import Card, CardStatus, PhotoLabel, Purchase
 from sales.models import Listing, ListingStatus
 from sales.services import register_sale
 
 DEMO_USERNAME = "demo"
-DEMO_PASSWORD = "demo-kaarten-2026"  # alleen lokaal; nooit in productie gebruiken
+DEMO_PASSWORD = "demo-cards-2026"  # local only; never use in production
 
 CARDS = [
     ("Erling Haaland", "Soccer", "Topps Chrome UCL", 2023, "15", "base", "Near Mint", "2.50"),
@@ -28,7 +32,7 @@ CARDS = [
 ]
 
 
-# speler, set, jaar, inkoop, te koop sinds (dagen geleden), verkocht (dagen geleden), prijs, land
+# player, set, year, cost, listed (days ago), sold (days ago), price, country
 SOLD = [
     ("Kylian Mbappé", "Topps Chrome UCL", 2023, "4.00", 340, 320, "11.50", "FR"),
     ("Florian Wirtz", "Topps Chrome UCL", 2023, "2.00", 300, 260, "6.00", "DE"),
@@ -44,15 +48,46 @@ SOLD = [
 ]
 
 
+SET_COLOURS = {
+    "Topps Chrome UCL": ("#1b3a8a", "#8fb3ff"),
+    "Topps Chrome": ("#5b1e86", "#d6b4ff"),
+    "Panini Prizm": ("#8a1b1b", "#ffb0a8"),
+    "Panini Prizm Premier League": ("#11624a", "#9ee6c8"),
+    "Topps Chrome F1": ("#202020", "#ff5a36"),
+}
+
+
+def card_image(card, side):
+    """A simple, recognisable card as a stand-in for real photos."""
+    dark, light = SET_COLOURS.get(card.set_name, ("#333333", "#cccccc"))
+    img = Image.new("RGB", (500, 700), dark if side == "front" else "#e9e4d8")
+    draw = ImageDraw.Draw(img)
+    draw.rounded_rectangle((18, 18, 482, 682), radius=22, outline=light, width=8)
+    big, small = ImageFont.load_default(size=40), ImageFont.load_default(size=26)
+    if side == "front":
+        draw.rectangle((50, 70, 450, 520), fill=light)
+        draw.text((250, 295), card.player.split()[-1].upper(), font=big, fill=dark, anchor="mm")
+        draw.text((250, 580), card.player, font=small, fill="#ffffff", anchor="mm")
+        draw.text((250, 625), f"{card.year} {card.set_name}", font=small, fill=light, anchor="mm")
+    else:
+        draw.text((250, 120), f"#{card.card_number or '-'}", font=big, fill="#222222", anchor="mm")
+        for i, line in enumerate([card.player, card.set_name, str(card.year), card.get_variant_display()]):
+            draw.text((250, 230 + i * 60), line, font=small, fill="#333333", anchor="mm")
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=88)
+    return SimpleUploadedFile(f"{side}.jpg", buf.getvalue(), content_type="image/jpeg")
+
+
 class Command(BaseCommand):
-    help = "Maakt een demo-gebruiker met voorbeelddata (alleen DEBUG)."
+    help = "Create a demo user with sample data (DEBUG only)."
 
     def handle(self, *args, **options):
         if not settings.DEBUG:
-            raise CommandError("seed_demo draait alleen met DEBUG aan.")
+            raise CommandError("seed_demo only runs with DEBUG enabled.")
         User = get_user_model()
         user, created = User.objects.get_or_create(username=DEMO_USERNAME)
         user.set_password(DEMO_PASSWORD)
+        user.email = "demo@example.com"
         user.save()
         if not created:
             user.cards.all().delete()
@@ -60,7 +95,7 @@ class Command(BaseCommand):
 
         FeeProfile.objects.create(
             user=user,
-            category="Sportkaarten",
+            category=DEFAULT_CATEGORY,
             commission_percentage=D("13.25"),
             fixed_fee=D("0.35"),
             valid_from=date(2024, 1, 1),
@@ -77,8 +112,8 @@ class Command(BaseCommand):
                 card=card, price=D(cost), shipping_in=D("1.00"),
                 date=today - timedelta(days=30 * i + 10), source="Cardmarket",
             )
-        # Elk voorraadniveau één keer: actie met vraagprijs (en verlies bij
-        # verlaging), waarschuwing, kritiek met bundelkans.
+        # Each stale level once: action with an asking price (and a loss when
+        # lowered), warning, and critical with a bundle opportunity.
         bellingham = Card.objects.get(owner=user, player="Jude Bellingham")
         bellingham.listed_since = today - timedelta(days=65)
         bellingham.save()
@@ -101,7 +136,7 @@ class Command(BaseCommand):
             packaging_cost=D("0.25"), sold_at=today - timedelta(days=5), buyer_country="DE",
         )
 
-        # Verkopen verspreid over het afgelopen jaar, voor het dashboard.
+        # Sales spread over the past year, for the dashboard.
         for player, set_name, year, cost, listed_ago, sold_ago, price, country in SOLD:
             card = Card.objects.create(
                 owner=user, player=player, sport="Soccer", set_name=set_name, year=year,
@@ -110,11 +145,18 @@ class Command(BaseCommand):
             )
             Purchase.objects.create(
                 card=card, price=D(cost), shipping_in=D("0.50"),
-                date=today - timedelta(days=listed_ago + 7), source="Beurs",
+                date=today - timedelta(days=listed_ago + 7), source="Card show",
             )
             register_sale(
                 card, sale_price=D(price), shipping_income=D("1.95"), shipping_cost=D("1.45"),
                 packaging_cost=D("0.25"), sold_at=today - timedelta(days=sold_ago),
                 buyer_country=country,
             )
-        self.stdout.write(self.style.SUCCESS(f"Demo-account '{DEMO_USERNAME}' klaar."))
+        # Photos: most cards get a front and back; Verstappen only a front (so
+        # the photo checklist has something to report), Pérez none.
+        for card in Card.objects.filter(owner=user).exclude(player="Sergio Pérez"):
+            photos.add_photos(card, [card_image(card, "front")], PhotoLabel.FRONT)
+            if card.player != "Max Verstappen":
+                photos.add_photos(card, [card_image(card, "back")], PhotoLabel.BACK)
+
+        self.stdout.write(self.style.SUCCESS(f"Demo account '{DEMO_USERNAME}' is ready."))

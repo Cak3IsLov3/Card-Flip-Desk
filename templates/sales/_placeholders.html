@@ -1,5 +1,5 @@
-<h2>Plaatshouders</h2>
+<h2>Placeholders</h2>
 <dl class="kv">
   {% for key, label in placeholders.items %}<dt><code>{{ "{" }}{{ key }}{{ "}" }}</code></dt><dd>{{ label }}</dd>{% endfor %}
 </dl>
-<p class="muted small">Lege velden verdwijnen uit de tekst, inclusief losse tekens zoals <code>#</code>. Een regel als <code>Variant:</code> zonder waarde valt weg. Titels zijn maximaal 80 tekens; langer wordt afgekapt op een woordgrens.</p>
+<p class="muted small">Empty fields disappear from the text, including stray characters such as <code>#</code>. A line like <code>Variant:</code> without a value is dropped. Titles are at most 80 characters; anything longer is cut at a word boundary.</p>

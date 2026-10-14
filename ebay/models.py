@@ -8,7 +8,7 @@ from .crypto import EncryptedTextField
 
 
 class OAuthToken(models.Model):
-    """Gebruikerstoken (Authorization Code Flow), versleuteld opgeslagen."""
+    """User token (Authorization Code Flow), stored encrypted."""
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="oauth_tokens"
@@ -18,7 +18,7 @@ class OAuthToken(models.Model):
     access_token = EncryptedTextField()
     refresh_token = EncryptedTextField(blank=True)
     scopes = models.TextField(blank=True)
-    expires_at = models.DateTimeField("verloopt op")
+    expires_at = models.DateTimeField("expires at")
     refresh_expires_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -41,14 +41,14 @@ class OAuthToken(models.Model):
 
 
 class CachedResponse(models.Model):
-    """Antwoorden van eBay, met ETag. Dient ook als noodvoorraad als eBay
-    niet bereikbaar is."""
+    """Responses from eBay, with their ETag. Also serves as a fallback when
+    eBay is unreachable."""
 
     endpoint = models.CharField(max_length=200)
-    key = models.CharField(max_length=64)  # sha256 van de parameters
+    key = models.CharField(max_length=64)  # sha256 of the parameters
     data = models.JSONField()
     etag = models.CharField(max_length=200, blank=True)
-    fetched_at = models.DateTimeField("opgehaald op")
+    fetched_at = models.DateTimeField("fetched at")
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["endpoint", "key"], name="unique_cached_response")]

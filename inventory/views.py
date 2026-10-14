@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Prefetch
+from django.db.models import Case, Prefetch, Value, When
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -20,7 +20,7 @@ CSV_SESSION_KEY = "csv_import_content"
 
 
 def _own_card(request, pk):
-    # 404 in plaats van 403: een ander mag niet eens weten dat de kaart bestaat.
+    # 404 rather than 403: another user should not even learn the card exists.
     return get_object_or_404(Card, pk=pk, owner=request.user)
 
 
@@ -35,7 +35,11 @@ def card_list(request):
         .prefetch_related(
             Prefetch("photos", CardPhoto.objects.filter(is_main=True), to_attr="main_photos")
         )
-        .order_by("-created_at")
+        # Unsold first: that is what you work with; sold cards sink to the bottom.
+        .order_by(
+            Case(When(status=CardStatus.SOLD, then=Value(1)), default=Value(0)),
+            "-created_at",
+        )
     )
     page = Paginator(filtered, 25).get_page(request.GET.get("page"))
     params = request.GET.copy()
@@ -59,7 +63,7 @@ def card_list(request):
 
 
 def _annotate_age(cards, user, today=None):
-    """Zet age_days en stale_level op elke kaart (voor de kleurcode)."""
+    """Set age_days and stale_level on each card (for the colour coding)."""
     today = today or timezone.localdate()
     thresholds = StaleThreshold.for_user(user)
     for card in cards:
@@ -103,7 +107,7 @@ def card_create(request):
             purchase.card = card
             purchase.date = purchase.date or purchase_form.fields["date"].initial
             purchase.save()
-        messages.success(request, f"Kaart toegevoegd: {card}")
+        messages.success(request, f"Card added: {card}")
         return redirect("inventory:card_detail", pk=card.pk)
     return render(
         request,
@@ -118,7 +122,7 @@ def card_update(request, pk):
     form = CardForm(request.POST or None, instance=card)
     if request.method == "POST" and form.is_valid():
         form.save()
-        messages.success(request, "Kaart bijgewerkt.")
+        messages.success(request, "Card updated.")
         return redirect("inventory:card_detail", pk=card.pk)
     return render(request, "inventory/card_form.html", {"form": form, "card": card})
 
@@ -128,7 +132,7 @@ def card_delete(request, pk):
     card = _own_card(request, pk)
     if request.method == "POST":
         card.delete()
-        messages.success(request, f"Kaart verwijderd: {card}")
+        messages.success(request, f"Card deleted: {card}")
         return redirect("inventory:card_list")
     return render(request, "inventory/card_confirm_delete.html", {"card": card})
 
@@ -142,9 +146,9 @@ def purchase_add(request, pk):
         purchase = form.save(commit=False)
         purchase.card = card
         purchase.save()
-        messages.success(request, "Inkoop toegevoegd.")
+        messages.success(request, "Purchase added.")
     else:
-        messages.error(request, "Inkoop niet opgeslagen: controleer de velden.")
+        messages.error(request, "Purchase not saved: check the fields.")
     return redirect("inventory:card_detail", pk=card.pk)
 
 
@@ -158,7 +162,7 @@ def csv_upload(request):
             form.add_error("file", str(exc))
         else:
             if not csv_import.read_header(content):
-                form.add_error("file", "Het bestand heeft geen kopregel.")
+                form.add_error("file", "The file has no header row.")
             else:
                 request.session[CSV_SESSION_KEY] = content
                 return redirect("inventory:csv_map")

@@ -1,8 +1,8 @@
-"""Titels en beschrijvingen voor listings, opgebouwd uit kaartgegevens.
+"""Listing titles and descriptions built from card data.
 
-Patronen gebruiken plaatshouders zoals `{jaar} {set} {speler} #{nummer}`.
-Lege velden verdwijnen netjes: een losse `#` of `()` blijft niet achter.
-De uitkomst is platte tekst; escapen gebeurt bij het tonen in HTML.
+Patterns use placeholders such as `{year} {set} {player} #{number}`.
+Empty fields disappear cleanly: no stray `#` or `()` is left behind.
+The result is plain text; escaping happens when it is shown as HTML.
 """
 
 import re
@@ -12,34 +12,34 @@ from dataclasses import dataclass, field
 from inventory.models import Card, PhotoLabel, Variant
 from inventory.photos import photo_checklist
 
-TITLE_MAX_LENGTH = 80  # eBay-limiet, in tekens
+TITLE_MAX_LENGTH = 80  # eBay limit, in characters
 
-DEFAULT_TITLE_PATTERN = "{jaar} {set} {speler} #{nummer} {variant} {conditie}"
+DEFAULT_TITLE_PATTERN = "{year} {set} {player} #{number} {variant} {condition}"
 DEFAULT_DESCRIPTION_PATTERN = (
-    "{jaar} {set} – {speler} #{nummer}\n"
+    "{year} {set} – {player} #{number}\n"
     "Variant: {variant}\n"
-    "Conditie: {conditie}\n"
+    "Condition: {condition}\n"
     "\n"
-    "{opmerkingen}\n"
-    "{defecten}\n"
+    "{notes}\n"
+    "{defects}\n"
     "\n"
-    "Verzending in een toploader en een stevige envelop. "
-    "Bekijk de foto's: je ontvangt precies deze kaart."
+    "Shipped in a toploader inside a sturdy envelope. "
+    "Check the photos: you receive exactly this card."
 )
 
 PLACEHOLDERS = {
-    "jaar": "Jaar",
+    "year": "Year",
     "set": "Set",
-    "speler": "Speler",
-    "nummer": "Kaartnummer",
-    "variant": "Variant (leeg bij base)",
-    "conditie": "Conditie",
+    "player": "Player",
+    "number": "Card number",
+    "variant": "Variant (empty for base)",
+    "condition": "Condition",
     "sport": "Sport",
-    "opmerkingen": "Notities bij de kaart",
-    "defecten": "Melding als er foto's van defecten zijn",
+    "notes": "Notes on the card",
+    "defects": "A note when there are photos of defects",
 }
 _PLACEHOLDER_RE = re.compile(r"\{([^{}]*)\}")
-# Een "woord" dat na het invullen alleen nog leestekens bevat, hoort er niet meer bij.
+# A "word" that is only punctuation after filling in no longer belongs there.
 _ORPHAN_RE = re.compile(r"^[#\-–—|/•·,:;()\[\]]+$")
 _EMPTY_LABEL_RE = re.compile(r"^[^:\n]{1,40}:$")
 
@@ -57,26 +57,26 @@ def card_values(card: Card, photos=None) -> dict[str, str]:
     defects = sum(1 for p in photos if p.label == PhotoLabel.DEFECT)
     defect_note = ""
     if defects:
-        noun = "foto" if defects == 1 else "foto's"
-        defect_note = f"Let op: {defects} {noun} van defecten bijgevoegd."
+        noun = "photo" if defects == 1 else "photos"
+        defect_note = f"Note: {defects} {noun} of defects included."
     return {
-        "jaar": str(card.year or ""),
+        "year": str(card.year or ""),
         "set": card.set_name,
-        "speler": card.player,
-        "nummer": card.card_number,
+        "player": card.player,
+        "number": card.card_number,
         "variant": "" if card.variant == Variant.BASE else card.get_variant_display(),
-        "conditie": card.condition,
+        "condition": card.condition,
         "sport": card.sport,
-        "opmerkingen": card.notes,
-        "defecten": defect_note,
+        "notes": card.notes,
+        "defects": defect_note,
     }
 
 
 def render(pattern: str, values: dict[str, str], *, single_line: bool) -> tuple[str, list[str]]:
-    """Vult een patroon in. Geeft de tekst en de lege plaatshouders terug."""
+    """Fill in a pattern. Returns the text and the placeholders that were empty."""
     unknown = unknown_placeholders(pattern)
     if unknown:
-        raise PatternError("Onbekende plaatshouder(s): " + ", ".join("{" + u + "}" for u in unknown))
+        raise PatternError("Unknown placeholder(s): " + ", ".join("{" + u + "}" for u in unknown))
 
     empty = []
 
@@ -92,14 +92,14 @@ def render(pattern: str, values: dict[str, str], *, single_line: bool) -> tuple[
         text = _tidy_line(text)
     else:
         lines = [_tidy_line(line) for line in text.splitlines()]
-        # "Variant:" zonder waarde is ruis; zo'n regel valt weg.
+        # "Variant:" without a value is noise; such a line is dropped.
         lines = [line for line in lines if not _EMPTY_LABEL_RE.match(line)]
         text = re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
     return text, sorted(set(empty))
 
 
 def clean_text(value: str, *, single_line: bool) -> str:
-    """Verwijdert stuurtekens en (voor titels) regeleinden; normaliseert Unicode."""
+    """Remove control characters and (for titles) line breaks; normalise Unicode."""
     value = unicodedata.normalize("NFC", value or "")
     allowed = {"\n"} if not single_line else set()
     value = "".join(
@@ -114,7 +114,7 @@ def _tidy_line(line: str) -> str:
 
 
 def truncate_title(title: str, limit: int = TITLE_MAX_LENGTH) -> str:
-    """Kapt af op een woordgrens; alleen als dat niet kan, midden in een woord."""
+    """Cut at a word boundary; only mid-word when there is no other option."""
     if len(title) <= limit:
         return title
     cut = title[: limit + 1].rsplit(" ", 1)[0]
@@ -144,15 +144,15 @@ def generate(card: Card, title_pattern: str, description_pattern: str) -> Genera
     title = truncate_title(full_title)
     warnings = []
     if not full_title:
-        warnings.append("De titel is leeg.")
+        warnings.append("The title is empty.")
     if title != full_title:
         dropped = full_title[len(title):].strip()
         warnings.append(
-            f"Titel is {len(full_title)} tekens (max. {TITLE_MAX_LENGTH}) en is afgekapt; "
-            f"weggevallen: “{dropped}”."
+            f"Title is {len(full_title)} characters (max. {TITLE_MAX_LENGTH}) and was cut; "
+            f"dropped: “{dropped}”."
         )
-    labels = {k: PLACEHOLDERS[k] for k in empty_in_title if k not in ("variant", "defecten", "opmerkingen")}
+    labels = {k: PLACEHOLDERS[k] for k in empty_in_title if k not in ("variant", "defects", "notes")}
     if labels:
-        warnings.append("Leeg in de titel: " + ", ".join(labels.values()).lower() + ".")
+        warnings.append("Empty in the title: " + ", ".join(labels.values()).lower() + ".")
     warnings.extend(photo_checklist(card, photos))
     return GeneratedListing(title=title, full_title=full_title, description=description, warnings=warnings)

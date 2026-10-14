@@ -1,8 +1,8 @@
-"""Wekelijks overzicht van oude voorraad per e-mail.
+"""Weekly stale-inventory digest by email.
 
-Los van de planner: `send_digests(today=...)` doet het werk, het
-management-command `send_stale_digest` roept het aan, en een cronjob of de
-Windows Taakplanner roept het command aan.
+Kept separate from the scheduler: `send_digests(today=...)` does the work, the
+`send_stale_digest` management command calls it, and cron or Windows Task
+Scheduler calls the command.
 """
 
 from dataclasses import dataclass, field
@@ -27,7 +27,7 @@ class DigestResult:
 
 
 def build_message(user, today: date) -> EmailMultiAlternatives | None:
-    """Het bericht voor één gebruiker, of None als er niets te melden is."""
+    """The message for one user, or None if there is nothing to report."""
     thresholds = StaleThreshold.for_user(user)
     summary = aging.AttentionSummary(aging.stale_items(user, today, thresholds))
     if not summary.items:
@@ -40,7 +40,7 @@ def build_message(user, today: date) -> EmailMultiAlternatives | None:
         "site_url": settings.SITE_URL.rstrip("/"),
     }
     n = len(summary.items)
-    subject = f"Card Flip Desk: {n} kaart{'en' if n != 1 else ''} vragen aandacht"
+    subject = f"Card Flip Desk: {n} card{'s' if n != 1 else ''} need{'s' if n == 1 else ''} attention"
     message = EmailMultiAlternatives(
         subject=subject,
         body=render_to_string("inventory/email/digest.txt", context),

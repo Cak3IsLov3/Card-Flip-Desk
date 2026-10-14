@@ -34,7 +34,7 @@ def url(name, *args):
     return reverse(f"api:{name}", args=args)
 
 
-# --- authenticatie -----------------------------------------------------------
+# --- authentication ------------------------------------------------------------
 
 def test_requires_authentication(db):
     assert APIClient().get(url("card-list")).status_code == 401
@@ -42,7 +42,7 @@ def test_requires_authentication(db):
 
 def test_invalid_token_rejected(db):
     client = APIClient()
-    client.credentials(HTTP_AUTHORIZATION="Token nep")
+    client.credentials(HTTP_AUTHORIZATION="Token fake")
     assert client.get(url("card-list")).status_code == 401
 
 
@@ -57,7 +57,7 @@ def test_obtain_token_and_use_it(user):
 def test_token_endpoint_is_throttled(user):
     cache.clear()
     client = APIClient()
-    codes = [client.post(url("token"), {"username": "alice", "password": "fout"}).status_code for _ in range(11)]
+    codes = [client.post(url("token"), {"username": "alice", "password": "wrong"}).status_code for _ in range(11)]
     assert codes[:10] == [400] * 10
     assert codes[10] == 429
 
@@ -72,7 +72,7 @@ def test_token_page_creates_and_revokes(user, client_for):
     assert not Token.objects.filter(user=user).exists()
 
 
-# --- kaarten en eigendom -----------------------------------------------------
+# --- cards and ownership -------------------------------------------------------
 
 def test_card_crud(api, user):
     resp = api.post(url("card-list"), {"player": "Saka", "set_name": "Prizm", "year": 2022, "variant": "base"},
@@ -107,7 +107,7 @@ def test_card_list_filters_and_isolation(api, user, other_user, make_card):
 @pytest.mark.parametrize("method", ["get", "patch", "put", "delete"])
 def test_other_user_cannot_touch_card(method, other_api, user, make_card):
     card = make_card(user, player="Haaland")
-    resp = getattr(other_api, method)(url("card-detail", card.pk), {"player": "Gestolen"}, format="json")
+    resp = getattr(other_api, method)(url("card-detail", card.pk), {"player": "Stolen"}, format="json")
     assert resp.status_code == 404
     card.refresh_from_db()
     assert card.player == "Haaland"
@@ -137,7 +137,7 @@ def test_other_users_purchases_and_listings_invisible(api, other_user, make_card
     assert api.get(url("purchase-detail", card.purchases.get().pk)).status_code == 404
 
 
-# --- foto's ------------------------------------------------------------------
+# --- photos ------------------------------------------------------------------
 
 def test_photo_upload_download_and_exif(api, user, make_card):
     card = make_card(user)
@@ -155,10 +155,10 @@ def test_photo_upload_download_and_exif(api, user, make_card):
 
 def test_photo_upload_rejects_fake_image(api, user, make_card):
     card = make_card(user)
-    resp = api.post(url("photo-list"), {"card": card.pk, "file": upload(b"geen foto" * 50, "x.jpg")},
+    resp = api.post(url("photo-list"), {"card": card.pk, "file": upload(b"not a photo" * 50, "x.jpg")},
                     format="multipart")
     assert resp.status_code == 400
-    assert "geen geldige afbeelding" in resp.data["file"][0]
+    assert "not a valid image" in resp.data["file"][0]
 
 
 def test_photo_label_set_main_and_delete(api, user, make_card):
@@ -169,7 +169,7 @@ def test_photo_label_set_main_and_delete(api, user, make_card):
     assert api.post(url("photo-set-main", ids[1])).data["is_main"]
     assert CardPhoto.objects.get(pk=ids[0]).is_main is False
     assert api.delete(url("photo-detail", ids[1])).status_code == 204
-    assert CardPhoto.objects.get(pk=ids[0]).is_main  # de andere wordt hoofdfoto
+    assert CardPhoto.objects.get(pk=ids[0]).is_main  # the other one becomes the main photo
 
 
 @pytest.mark.parametrize("name", ["photo-detail", "photo-file", "photo-thumbnail"])
@@ -189,13 +189,13 @@ def test_cannot_upload_photo_to_other_users_card(other_api, user, make_card):
     assert not CardPhoto.objects.exists()
 
 
-# --- listings en verkopen ----------------------------------------------------
+# --- listings and sales --------------------------------------------------------
 
 def test_generate_listing(api, user, make_card):
     card = make_card(user, variant="rookie", condition="Near Mint")
     resp = api.post(url("card-generate-listing", card.pk), {}, format="json")
     assert resp.data["title"] == "2023 Topps Chrome Erling Haaland #15 Rookie Near Mint"
-    assert "Er zijn nog geen foto's." in resp.data["warnings"]
+    assert "There are no photos yet." in resp.data["warnings"]
 
 
 def test_listing_cannot_be_marked_sold_via_api(api, user, make_card):
@@ -216,10 +216,10 @@ def test_sale_create_uses_fee_profile(api, user, fee_profile, make_card):
     assert resp.data["profit"] == "5.24"
     card.refresh_from_db()
     assert card.status == CardStatus.SOLD
-    # nog een keer verkopen kan niet
+    # selling it again is not possible
     again = api.post(url("sale-list"), {"card": card.pk, "sale_price": "1", "sold_at": "2026-04-03"}, format="json")
     assert again.status_code == 400
-    # een verkochte listing kan niet weg
+    # a sold listing cannot be deleted
     assert api.delete(url("listing-detail", resp.data["listing"])).status_code == 400
 
 
@@ -259,15 +259,15 @@ def test_fee_profiles_isolated(api, other_api, fee_profile):
 
 
 def test_listing_template_validation(api):
-    resp = api.post(url("listing-template-list"), {"name": "X", "title_pattern": "{spelr}"}, format="json")
+    resp = api.post(url("listing-template-list"), {"name": "X", "title_pattern": "{playr}"}, format="json")
     assert resp.status_code == 400 and "title_pattern" in resp.data
-    assert api.post(url("listing-template-list"), {"name": "X", "title_pattern": "{speler}"},
+    assert api.post(url("listing-template-list"), {"name": "X", "title_pattern": "{player}"},
                     format="json").status_code == 201
-    assert api.post(url("listing-template-list"), {"name": "x", "title_pattern": "{speler}"},
+    assert api.post(url("listing-template-list"), {"name": "x", "title_pattern": "{player}"},
                     format="json").status_code == 400
 
 
-# --- documentatie ------------------------------------------------------------
+# --- documentation -------------------------------------------------------------
 
 def test_openapi_schema_and_docs(api, user, client_for):
     resp = api.get(url("schema"), {"format": "json"})

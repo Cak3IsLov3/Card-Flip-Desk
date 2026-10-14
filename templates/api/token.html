@@ -1,32 +1,32 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}API-token – Card Flip Desk{% endblock %}
+{% block title %}API token – Card Flip Desk{% endblock %}
 {% block head %}<script src="{% static 'listing.js' %}" defer></script>{% endblock %}
 {% block content %}
 <h1>API</h1>
 <div class="grid">
   <section class="panel">
-    <h2>Je API-token</h2>
+    <h2>Your API token</h2>
     {% if token %}
       <div class="copy-row">
-        <input id="api-token" value="{{ token.key }}" readonly aria-label="API-token">
-        <button type="button" class="secondary" data-copy="api-token">Kopiëren</button>
+        <input id="api-token" value="{{ token.key }}" readonly aria-label="API token">
+        <button type="button" class="secondary" data-copy="api-token">Copy</button>
       </div>
-      <p class="small muted">Aangemaakt op {{ token.created|date:"d-m-Y H:i" }}. Behandel het als een wachtwoord: wie het heeft, kan bij al je data.</p>
+      <p class="small muted">Created on {{ token.created|date:"d-m-Y H:i" }}. Treat it like a password: whoever has it can access all your data.</p>
       <form method="post" class="actions">{% csrf_token %}
-        <button name="create" value="1" class="secondary">Vernieuwen</button>
-        <button name="revoke" value="1" class="danger">Intrekken</button>
+        <button name="create" value="1" class="secondary">Renew</button>
+        <button name="revoke" value="1" class="danger">Revoke</button>
       </form>
     {% else %}
-      <p>Je hebt nog geen token.</p>
-      <form method="post">{% csrf_token %}<button name="create" value="1">Token aanmaken</button></form>
+      <p>You do not have a token yet.</p>
+      <form method="post">{% csrf_token %}<button name="create" value="1">Create token</button></form>
     {% endif %}
   </section>
   <section class="panel">
-    <h2>Gebruik</h2>
+    <h2>Usage</h2>
     <pre class="preview">curl -H "Authorization: Token &lt;token&gt;" \
   {{ request.scheme }}://{{ request.get_host }}{% url 'api:card-list' %}</pre>
-    <p><a href="{% url 'api:docs' %}">Interactieve documentatie (OpenAPI)</a> · <a href="{% url 'api:schema' %}">schema</a></p>
+    <p><a href="{% url 'api:docs' %}">Interactive documentation (OpenAPI)</a> · <a href="{% url 'api:schema' %}">schema</a></p>
   </section>
 </div>
 {% endblock %}

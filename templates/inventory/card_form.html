@@ -1,18 +1,18 @@
 {% extends "base.html" %}
-{% block title %}{% if is_new %}Kaart toevoegen{% else %}Kaart bewerken{% endif %} – Card Flip Desk{% endblock %}
+{% block title %}{% if is_new %}Add card{% else %}Edit card{% endif %} – Card Flip Desk{% endblock %}
 {% block content %}
-<h1>{% if is_new %}Kaart toevoegen{% else %}{{ card }} bewerken{% endif %}</h1>
+<h1>{% if is_new %}Add card{% else %}Edit {{ card }}{% endif %}</h1>
 <form method="post">{% csrf_token %}
   <div class="grid">
     <section class="panel">{% include "_form_fields.html" %}</section>
     {% if purchase_form %}
     <section class="panel">
-      <h2>Inkoop (optioneel)</h2>
+      <h2>Purchase (optional)</h2>
       {% include "_form_fields.html" with form=purchase_form %}
     </section>
     {% endif %}
   </div>
-  <div class="actions"><button>Opslaan</button>
-    <a href="{% if card %}{% url 'inventory:card_detail' card.pk %}{% else %}{% url 'inventory:card_list' %}{% endif %}">Annuleren</a></div>
+  <div class="actions"><button>Save</button>
+    <a href="{% if card %}{% url 'inventory:card_detail' card.pk %}{% else %}{% url 'inventory:card_list' %}{% endif %}">Cancel</a></div>
 </form>
 {% endblock %}

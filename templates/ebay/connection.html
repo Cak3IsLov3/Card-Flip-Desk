@@ -1,36 +1,36 @@
 {% extends "base.html" %}
-{% block title %}eBay-koppeling – Card Flip Desk{% endblock %}
+{% block title %}eBay connection – Card Flip Desk{% endblock %}
 {% block content %}
-<h1>eBay-koppeling</h1>
+<h1>eBay connection</h1>
 <div class="grid">
   <section class="panel">
-    <h2>Prijsadvies (Browse API)</h2>
+    <h2>Price advice (Browse API)</h2>
     {% if client.configured %}
-      <p class="good">✓ Applicatiesleutels ingesteld ({{ client.environment }}, {{ marketplace }}).</p>
-      <p class="small muted">{{ calls_today }} van {{ budget }} calls gebruikt vandaag. Antwoorden worden een aantal uren bewaard, zodat je het budget niet snel opmaakt.</p>
+      <p class="good">✓ Application keys set ({{ client.environment }}, {{ marketplace }}).</p>
+      <p class="small muted">{{ calls_today }} of {{ budget }} calls used today. Responses are kept for a few hours, so you do not burn through the budget.</p>
     {% else %}
-      <p>Nog geen eBay-sleutels ingesteld. Het prijsadvies gebruikt dan alleen je eigen verkopen.</p>
-      <p class="small muted">Zet <code>EBAY_CLIENT_ID</code> en <code>EBAY_CLIENT_SECRET</code> (en eventueel <code>EBAY_ENVIRONMENT=production</code>) als omgevingsvariabelen. Zie de README.</p>
+      <p>No eBay keys set yet. Price advice then only uses your own sales.</p>
+      <p class="small muted">Set <code>EBAY_CLIENT_ID</code> and <code>EBAY_CLIENT_SECRET</code> (and optionally <code>EBAY_ENVIRONMENT=production</code>) as environment variables. See the README.</p>
     {% endif %}
     {% if client.environment == "sandbox" %}
-      <p class="small muted">Let op: de sandbox bevat testlistings, geen echte marktprijzen. Productietoegang tot de Buy API's vraag je aan bij eBay.</p>
+      <p class="small muted">Note: the sandbox contains test listings, not real market prices. You apply to eBay for production access to the Buy APIs.</p>
     {% endif %}
   </section>
 
   <section class="panel">
-    <h2>Je eBay-account</h2>
-    <p class="small muted">Nodig voor toekomstige functies zoals listings plaatsen. Voor het prijsadvies hoef je niet te koppelen.</p>
+    <h2>Your eBay account</h2>
+    <p class="small muted">Needed for future features such as placing listings. Price advice does not require a connection.</p>
     {% if token %}
-      <p class="good">✓ Gekoppeld ({{ token.environment }}).</p>
+      <p class="good">✓ Connected ({{ token.environment }}).</p>
       <dl class="kv small">
-        <dt>Toegang verloopt</dt><dd>{{ token.expires_at|date:"d-m-Y H:i" }} (wordt automatisch vernieuwd)</dd>
-        <dt>Koppeling verloopt</dt><dd>{{ token.refresh_expires_at|date:"d-m-Y"|default:"–" }}</dd>
+        <dt>Access expires</dt><dd>{{ token.expires_at|date:"d-m-Y H:i" }} (renewed automatically)</dd>
+        <dt>Connection expires</dt><dd>{{ token.refresh_expires_at|date:"d-m-Y"|default:"–" }}</dd>
       </dl>
-      <form method="post" action="{% url 'ebay:disconnect' %}">{% csrf_token %}<button class="danger">Ontkoppelen</button></form>
+      <form method="post" action="{% url 'ebay:disconnect' %}">{% csrf_token %}<button class="danger">Disconnect</button></form>
     {% elif can_connect %}
-      <form method="post" action="{% url 'ebay:connect' %}">{% csrf_token %}<button>Koppel eBay-account</button></form>
+      <form method="post" action="{% url 'ebay:connect' %}">{% csrf_token %}<button>Connect eBay account</button></form>
     {% else %}
-      <p class="muted small">Koppelen vraagt ook <code>EBAY_RUNAME</code>, met als accept-URL deze site + <code>{% url 'ebay:callback' %}</code>.</p>
+      <p class="muted small">Connecting also requires <code>EBAY_RUNAME</code>, with this site + <code>{% url 'ebay:callback' %}</code> as its accept URL.</p>
     {% endif %}
   </section>
 </div>

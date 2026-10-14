@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Registreren – Card Flip Desk{% endblock %}
+{% block title %}Sign up – Card Flip Desk{% endblock %}
 {% block content %}
 <section class="narrow">
-  <h1>Account aanmaken</h1>
+  <h1>Create an account</h1>
   <form method="post">{% csrf_token %}
     {% include "_form_fields.html" %}
-    <button>Registreren</button>
+    <button>Sign up</button>
   </form>
 </section>
 {% endblock %}

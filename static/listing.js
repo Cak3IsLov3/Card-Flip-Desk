@@ -1,5 +1,5 @@
-/* Tekenteller en kopieerknoppen voor de listing-generator.
- * Gebonden aan document, zodat het ook werkt na een HTMX-swap. */
+/* Character counter and copy buttons for the listing generator.
+ * Bound to document, so it keeps working after an HTMX swap. */
 (function () {
   function updateCount(input) {
     const counter = document.querySelector(`[data-count-for="${input.id}"]`);
@@ -21,10 +21,10 @@
     const original = button.textContent;
     try {
       await navigator.clipboard.writeText(source.value);
-      button.textContent = "Gekopieerd ✓";
+      button.textContent = "Copied ✓";
     } catch {
-      source.select(); // geen klembord-toegang: selecteer, dan kan Ctrl+C
-      button.textContent = "Geselecteerd – druk Ctrl+C";
+      source.select(); // no clipboard access: select it so Ctrl+C works
+      button.textContent = "Selected – press Ctrl+C";
     }
     setTimeout(() => (button.textContent = original), 1800);
   });

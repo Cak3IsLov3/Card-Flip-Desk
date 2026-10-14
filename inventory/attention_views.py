@@ -18,7 +18,7 @@ def _own_unsold_card(request, pk):
 
 
 def _next_url(request):
-    """Alleen een terugverwijzing naar onze eigen site (geen open redirect)."""
+    """Only redirect back to our own site (no open redirect)."""
     url = request.POST.get("next", "")
     if url and url_has_allowed_host_and_scheme(url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
         return url
@@ -60,7 +60,7 @@ def threshold_settings(request):
     form = StaleThresholdForm(request.POST or None, instance=thresholds)
     if request.method == "POST" and form.is_valid():
         form.save()
-        messages.success(request, "Drempels opgeslagen.")
+        messages.success(request, "Thresholds saved.")
         return redirect("inventory:attention")
     return render(request, "inventory/threshold_settings.html", {"form": form})
 
@@ -74,7 +74,7 @@ def pin_card(request, pk):
         card.held_until = form.cleaned_data["held_until"]
         card.save(update_fields=["held_until", "updated_at"])
         InventoryNote.objects.create(card=card, kind=NoteKind.PINNED, details={"until": card.held_until.isoformat()})
-        messages.success(request, f"{card} vastgezet tot {card.held_until:%d-%m-%Y}.")
+        messages.success(request, f"{card} pinned until {card.held_until:%d-%m-%Y}.")
     else:
         messages.error(request, " ".join(form.errors["held_until"]))
     return redirect(_next_url(request))
@@ -88,16 +88,17 @@ def unpin_card(request, pk):
         card.held_until = None
         card.save(update_fields=["held_until", "updated_at"])
         InventoryNote.objects.create(card=card, kind=NoteKind.UNPINNED)
-        messages.success(request, f"{card} is niet meer vastgezet.")
+        messages.success(request, f"{card} is no longer pinned.")
     return redirect(_next_url(request))
 
 
 def _suggestion(request, card, percentage):
+    from finance.models import DEFAULT_CATEGORY
     from sales.services import NoFeeProfile, fees_for
 
     listing = _open_listing(card)
     try:
-        fees = fees_for(request.user, "Sportkaarten", timezone.localdate())
+        fees = fees_for(request.user, DEFAULT_CATEGORY, timezone.localdate())
     except NoFeeProfile:
         fees = None
     return listing, aging.suggest_price(
@@ -124,11 +125,11 @@ def price_apply(request, pk):
     card = _own_unsold_card(request, pk)
     form = PriceDropForm(request.POST)
     if not form.is_valid():
-        messages.error(request, "Ongeldig percentage.")
+        messages.error(request, "Invalid percentage.")
         return redirect("inventory:attention")
     listing, suggestion = _suggestion(request, card, form.cleaned_data["percentage"])
     if suggestion is None:
-        messages.error(request, "Deze kaart heeft nog geen listing met een vraagprijs.")
+        messages.error(request, "This card has no listing with an asking price yet.")
         return redirect("inventory:attention")
     with transaction.atomic():
         listing.asking_price = suggestion.new_price
@@ -142,9 +143,9 @@ def price_apply(request, pk):
                 "percentage": str(suggestion.percentage),
             },
         )
-    msg = f"Vraagprijs verlaagd naar € {suggestion.new_price}. Vergeet niet de prijs ook op eBay aan te passen."
+    msg = f"Asking price lowered to €{suggestion.new_price}. Remember to change the price on eBay as well."
     if suggestion.is_loss:
-        messages.warning(request, msg + " Let op: bij deze prijs maak je verlies.")
+        messages.warning(request, msg + " Note: you make a loss at this price.")
     else:
         messages.success(request, msg)
     return redirect("inventory:attention")

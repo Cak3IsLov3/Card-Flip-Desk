@@ -16,12 +16,12 @@ from .services import NoFeeProfile, register_sale
 def sale_create(request, card_pk):
     card = get_object_or_404(Card, pk=card_pk, owner=request.user)
     if card.status == CardStatus.SOLD:
-        messages.info(request, "Deze kaart is al verkocht.")
+        messages.info(request, "This card has already been sold.")
         return redirect("inventory:card_detail", pk=card.pk)
 
     form = SaleForm(request.user, request.POST or None)
     if not form.fields["category"].choices:
-        messages.warning(request, "Maak eerst een kostenprofiel aan.")
+        messages.warning(request, "Create a fee profile first.")
         return redirect("finance:fee_profiles")
 
     if request.method == "POST" and form.is_valid():
@@ -30,7 +30,7 @@ def sale_create(request, card_pk):
         except NoFeeProfile as exc:
             form.add_error("category", str(exc))
         else:
-            messages.success(request, "Verkoop geregistreerd.")
+            messages.success(request, "Sale recorded.")
             return redirect("inventory:card_detail", pk=card.pk)
     return render(request, "sales/sale_form.html", {"form": form, "card": card})
 
@@ -38,13 +38,13 @@ def sale_create(request, card_pk):
 @login_required
 def dashboard(request):
     data = build_dashboard(
-        request.user, today=timezone.localdate(), period=request.GET.get("periode", DEFAULT_PERIOD)
+        request.user, today=timezone.localdate(), period=request.GET.get("period", DEFAULT_PERIOD)
     )
     charted_sets = [s for s in data.sets if s["margin"] is not None][:12]
-    # Bedragen als string: JSON kent geen Decimal en een float zou afronden.
+    # Amounts as strings: JSON has no Decimal and a float would round.
     chart_data = {
         "months": {
-            "labels": [date_format(m["month"], "b 'y") for m in data.months],
+            "labels": [date_format(m["month"], "M 'y") for m in data.months],
             "revenue": [str(m["revenue"]) for m in data.months],
             "profit": [str(m["profit"]) for m in data.months],
         },

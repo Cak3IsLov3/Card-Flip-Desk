@@ -27,7 +27,7 @@ def add_front_and_back(card):
     photo_svc.add_photos(card, [upload(image_bytes(size=(50, 70)))], PhotoLabel.BACK)
 
 
-# --- titel -------------------------------------------------------------------
+# --- title -------------------------------------------------------------------
 
 def test_default_title(card):
     add_front_and_back(card)
@@ -42,15 +42,15 @@ def test_missing_fields_leave_no_debris(card):
     card.condition = ""
     card.variant = "base"
     result = gen.generate(card, TITLE, DESC)
-    assert result.title == "2023 Topps Chrome Erling Haaland"  # geen losse '#' of spaties
-    assert any("kaartnummer" in w and "conditie" in w for w in result.warnings)
+    assert result.title == "2023 Topps Chrome Erling Haaland"  # no stray '#' or spaces
+    assert any("card number" in w and "condition" in w for w in result.warnings)
 
 
 def test_orphan_punctuation_is_removed():
-    values = {"speler": "Saka", "nummer": "", "conditie": ""}
-    text, empty = gen.render("{speler} #{nummer} ({conditie}) - [{nummer}] |", values, single_line=True)
+    values = {"player": "Saka", "number": "", "condition": ""}
+    text, empty = gen.render("{player} #{number} ({condition}) - [{number}] |", values, single_line=True)
     assert text == "Saka"
-    assert empty == ["conditie", "nummer"]
+    assert empty == ["condition", "number"]
 
 
 def test_special_characters_kept_and_control_chars_removed(card):
@@ -62,8 +62,8 @@ def test_special_characters_kept_and_control_chars_removed(card):
 
 
 def test_unicode_is_normalised(card):
-    card.player = "Martin Ödegaard"  # 'Ö' als twee codepunten
-    title = gen.generate(card, "{speler}", "").title
+    card.player = "Martin Ödegaard"  # 'Ö' as two code points
+    title = gen.generate(card, "{player}", "").title
     assert title == "Martin Ödegaard"
     assert len(title) == 15
 
@@ -73,7 +73,7 @@ def test_title_exactly_at_limit_is_not_truncated(card):
     result = gen.generate(card, TITLE, DESC)
     assert len(result.title) == 80
     assert not result.was_truncated
-    assert not any("afgekapt" in w for w in result.warnings)
+    assert not any("was cut" in w for w in result.warnings)
 
 
 def test_title_over_limit_is_cut_at_word_boundary(card):
@@ -82,8 +82,8 @@ def test_title_over_limit_is_cut_at_word_boundary(card):
     assert len(result.full_title) > 80
     assert len(result.title) <= 80
     assert result.full_title.startswith(result.title)
-    assert result.full_title[len(result.title)] == " "  # niet midden in een woord
-    warning = next(w for w in result.warnings if "afgekapt" in w)
+    assert result.full_title[len(result.title)] == " "  # not in the middle of a word
+    warning = next(w for w in result.warnings if "was cut" in w)
     assert str(len(result.full_title)) in warning
 
 
@@ -92,29 +92,29 @@ def test_single_word_longer_than_limit_is_hard_cut():
 
 
 def test_truncation_does_not_leave_trailing_hash():
-    title = "a" * 78 + " # 9 Rookie"  # knippen op de woordgrens laat "aaa… #" over
+    title = "a" * 78 + " # 9 Rookie"  # cutting at the word boundary leaves "aaa… #"
     assert gen.truncate_title(title) == "a" * 78
 
 
 def test_card_values_are_not_reinterpreted_as_placeholders(card):
     card.player = "{set}"
-    assert gen.generate(card, "{speler}", "").title == "{set}"
+    assert gen.generate(card, "{player}", "").title == "{set}"
 
 
 def test_unknown_placeholder_raises():
-    with pytest.raises(gen.PatternError, match="naam"):
-        gen.render("{speler} {naam}", {}, single_line=True)
+    with pytest.raises(gen.PatternError, match="name"):
+        gen.render("{player} {name}", {}, single_line=True)
 
 
-# --- beschrijving ------------------------------------------------------------
+# --- description -------------------------------------------------------------
 
 def test_description_with_condition_notes_and_defects(card):
-    card.notes = "Kleine witte stip op de achterkant.\nRest scherp."
+    card.notes = "Small white dot on the back.\nOtherwise sharp."
     photo_svc.add_photos(card, [upload(image_bytes(size=(50, 70)))], PhotoLabel.DEFECT)
     desc = gen.generate(card, TITLE, DESC).description
-    assert "Conditie: Near Mint" in desc
-    assert "Kleine witte stip op de achterkant.\nRest scherp." in desc
-    assert "Let op: 1 foto van defecten bijgevoegd." in desc
+    assert "Condition: Near Mint" in desc
+    assert "Small white dot on the back.\nOtherwise sharp." in desc
+    assert "Note: 1 photo of defects included." in desc
 
 
 def test_description_drops_empty_label_lines(card):
@@ -125,28 +125,28 @@ def test_description_drops_empty_label_lines(card):
     assert "\n\n\n" not in desc
 
 
-# --- fotochecklist -----------------------------------------------------------
+# --- photo checklist ---------------------------------------------------------
 
 def test_photo_checklist_is_part_of_the_checks(card):
-    assert "Er zijn nog geen foto's." in gen.generate(card, TITLE, DESC).warnings
+    assert "There are no photos yet." in gen.generate(card, TITLE, DESC).warnings
     photo_svc.add_photos(card, [upload(image_bytes(size=(50, 70)))], PhotoLabel.FRONT)
-    assert "Foto van de achterkant ontbreekt." in gen.generate(card, TITLE, DESC).warnings
+    assert "Back photo is missing." in gen.generate(card, TITLE, DESC).warnings
 
 
-# --- templateformulier -------------------------------------------------------
+# --- template form -----------------------------------------------------------
 
 def test_template_form_rejects_unknown_placeholders(user):
     form = ListingTemplateForm(
-        {"name": "Kort", "title_pattern": "{speler} {spelr}", "description_pattern": "{bla}"}, user=user
+        {"name": "Short", "title_pattern": "{player} {playr}", "description_pattern": "{bla}"}, user=user
     )
     assert not form.is_valid()
-    assert "{spelr}" in form.errors["title_pattern"][0]
+    assert "{playr}" in form.errors["title_pattern"][0]
     assert "{bla}" in form.errors["description_pattern"][0]
 
 
 def test_template_names_unique_per_user(user, other_user):
-    ListingTemplate.objects.create(user=user, name="Kort", title_pattern="{speler}")
-    data = {"name": "kort", "title_pattern": "{speler}", "description_pattern": ""}
+    ListingTemplate.objects.create(user=user, name="Short", title_pattern="{player}")
+    data = {"name": "short", "title_pattern": "{player}", "description_pattern": ""}
     assert not ListingTemplateForm(data, user=user).is_valid()
     assert ListingTemplateForm(data, user=other_user).is_valid()
 
@@ -160,7 +160,7 @@ def test_generator_page_prefills_generated_title(user, card, client_for):
 
 
 def test_generator_with_own_template_via_htmx(user, card, client_for):
-    tpl = ListingTemplate.objects.create(user=user, name="Kort", title_pattern="{speler} {jaar} RC")
+    tpl = ListingTemplate.objects.create(user=user, name="Short", title_pattern="{player} {year} RC")
     resp = client_for(user).get(
         reverse("sales:listing_generator", args=[card.pk]), {"template": tpl.pk}, HTTP_HX_REQUEST="true"
     )
@@ -169,7 +169,7 @@ def test_generator_with_own_template_via_htmx(user, card, client_for):
 
 
 def test_other_users_template_and_card_are_404(user, other_user, card, client_for):
-    foreign = ListingTemplate.objects.create(user=other_user, name="X", title_pattern="{speler}")
+    foreign = ListingTemplate.objects.create(user=other_user, name="X", title_pattern="{player}")
     client = client_for(user)
     resp = client.get(reverse("sales:listing_generator", args=[card.pk]), {"template": foreign.pk})
     assert resp.status_code == 404
@@ -184,16 +184,24 @@ def test_other_users_template_and_card_are_404(user, other_user, card, client_fo
 def test_save_draft_then_update_same_listing(user, card, client_for):
     client = client_for(user)
     url = reverse("sales:listing_generator", args=[card.pk])
-    client.post(url, {"title": "Titel 1", "description": "", "asking_price": "9.99", "save": "1"})
-    client.post(url, {"title": "Titel 2", "description": "Tekst", "asking_price": "8.50", "save": "1"})
+    client.post(url, {"title": "Title 1", "description": "", "asking_price": "9.99", "save": "1"})
+    client.post(url, {"title": "Title 2", "description": "Text", "asking_price": "8.50", "save": "1"})
     listing = Listing.objects.get(card=card)
-    assert (listing.title, listing.asking_price, listing.status) == ("Titel 2", D("8.50"), ListingStatus.DRAFT)
+    assert (listing.title, listing.asking_price, listing.status) == ("Title 2", D("8.50"), ListingStatus.DRAFT)
 
-    # Zonder ?template toont de pagina de opgeslagen versie.
+    # Without ?template the page shows the saved version.
     resp = client.get(url)
-    assert resp.context["form"].initial["title"] == "Titel 2"
+    assert resp.context["form"].initial["title"] == "Title 2"
     assert resp.context["showing_saved"]
-    assert b"Opgeslagen versie" in resp.content
+    assert b"Saved version" in resp.content
+
+
+def test_saved_asking_price_survives_dutch_locale(user, card, client_for):
+    """A type=number field does not accept '8,50'; the value must be '8.50' in any locale."""
+    Listing.objects.create(card=card, title="x", asking_price=D("8.50"))
+    resp = client_for(user).get(reverse("sales:listing_generator", args=[card.pk]))
+    assert b'name="asking_price"' in resp.content
+    assert b'value="8.50"' in resp.content
 
 
 def test_activate_marks_card_for_sale(user, card, client_for):
@@ -225,7 +233,7 @@ def test_html_in_card_data_is_escaped(user, card, client_for):
 
 def test_profit_preview_reuses_calculator(user, fee_profile, card, client_for):
     resp = client_for(user).get(reverse("sales:listing_profit", args=[card.pk]), {"asking_price": "10.00"})
-    # 10,00 - (1,33 + 0,35) - 3,00 inkoop = 5,32
+    # 10.00 - (1.33 + 0.35) - 3.00 cost = 5.32
     assert resp.context["preview"].profit == D("5.32")
     resp = client_for(user).get(reverse("sales:listing_profit", args=[card.pk]), {"asking_price": "abc"})
     assert resp.context["preview"] is None
@@ -238,8 +246,8 @@ def test_sale_uses_the_generated_listing(user, fee_profile, card, client_for):
 
     client_for(user).post(
         reverse("sales:listing_generator", args=[card.pk]),
-        {"title": "Mijn titel", "description": "", "asking_price": "9.99", "activate": "1"},
+        {"title": "My title", "description": "", "asking_price": "9.99", "activate": "1"},
     )
     sale = register_sale(card, sale_price=D("9.50"), sold_at=date(2026, 10, 1))
-    assert sale.listing.title == "Mijn titel"
+    assert sale.listing.title == "My title"
     assert Listing.objects.filter(card=card).count() == 1

@@ -1,17 +1,18 @@
-"""Kosten- en winstcalculator.
+"""Fee and profit calculator.
 
-Pure functies zonder database, zodat de rekenregels los te testen zijn.
+Pure functions without a database, so the arithmetic can be tested in
+isolation.
 
-Rekenregels
------------
-- Alle bedragen zijn `Decimal`; floats worden geweigerd.
-- Commissie en betaalkosten worden berekend over het totaal dat de koper
-  betaalt (verkoopprijs + verzendopbrengst), zoals eBay dat doet.
-- Elke kostenpost wordt afzonderlijk afgerond op hele centen met
-  ROUND_HALF_UP. Netto-opbrengst en winst zijn sommen van afgeronde posten,
-  dus er ontstaan geen "zwevende" halve centen.
-- Marge = winst / bruto-opbrengst * 100, afgerond op 0,1 procentpunt.
-  Bij een bruto-opbrengst van nul is de marge `None`.
+Rules
+-----
+- All amounts are `Decimal`; floats are rejected.
+- Commission and payment fees are charged on what the buyer pays
+  (sale price + shipping charged), as eBay does.
+- Each cost item is rounded to whole cents on its own with ROUND_HALF_UP.
+  Net proceeds and profit are sums of rounded items, so no "floating"
+  half cents appear.
+- Margin = profit / gross * 100, rounded to 0.1 percentage point.
+  With a gross of zero the margin is `None`.
 """
 
 from dataclasses import dataclass
@@ -24,13 +25,13 @@ HUNDRED = Decimal("100")
 
 
 def money(value) -> Decimal:
-    """Rond af op centen volgens de vaste afrondingsregel."""
+    """Round to cents using the fixed rounding rule."""
     return _dec(value).quantize(CENT, rounding=ROUND_HALF_UP)
 
 
 def _dec(value) -> Decimal:
     if isinstance(value, float):
-        raise TypeError("Gebruik Decimal of str voor bedragen, geen float.")
+        raise TypeError("Use Decimal or str for amounts, not float.")
     return value if isinstance(value, Decimal) else Decimal(value)
 
 
@@ -116,16 +117,16 @@ def required_price(
     packaging_cost: Decimal = ZERO,
     purchase_cost: Decimal = ZERO,
 ) -> Decimal:
-    """Laagste vraagprijs (in centen) waarbij de winst minstens `target_profit` is.
+    """Lowest asking price (in cents) at which profit is at least `target_profit`.
 
-    Eerst wordt de prijs algebraïsch geschat; daarna wordt per cent
-    gecorrigeerd voor afrondingseffecten. Omdat de winst per extra cent
-    met hooguit één cent verandert, levert dit precies de doelwinst op.
+    The price is first estimated algebraically, then corrected cent by cent
+    for rounding effects. Because profit changes by at most one cent per
+    extra cent of price, this lands exactly on the target profit.
     """
     target = money(target_profit)
     rate = fees.total_rate
     if rate >= 1:
-        raise ValueError("Kostenpercentage van 100% of meer: geen prijs mogelijk.")
+        raise ValueError("Fee percentage of 100% or more: no price can reach the target.")
 
     shipping_income = money(shipping_income)
     fixed_costs = money(fees.fixed_fee) + money(shipping_cost) + money(packaging_cost) + money(
@@ -141,7 +142,7 @@ def required_price(
             CostInput(p, shipping_income, shipping_cost, packaging_cost, purchase_cost), fees
         ).profit
 
-    # Omlaag zolang het nog net kan, daarna omhoog tot de doelwinst gehaald is.
+    # Step down while it still works, then up until the target is reached.
     while price > ZERO and profit_at(price - CENT) >= target:
         price -= CENT
     while profit_at(price) < target:

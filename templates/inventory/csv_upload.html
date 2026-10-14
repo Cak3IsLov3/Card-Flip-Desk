@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}CSV importeren – Card Flip Desk{% endblock %}
+{% block title %}Import CSV – Card Flip Desk{% endblock %}
 {% block content %}
-<h1>Kaarten importeren uit CSV</h1>
+<h1>Import cards from CSV</h1>
 <section class="panel narrow">
-  <p class="muted">Komma, puntkomma of tab als scheidingsteken. De eerste regel moet kolomnamen bevatten; daarna koppel je de kolommen aan velden.</p>
+  <p class="muted">Comma, semicolon or tab as the separator. The first row must contain column names; next you map the columns to fields.</p>
   <form method="post" enctype="multipart/form-data">{% csrf_token %}
     {% include "_form_fields.html" %}
-    <button>Volgende: kolommen koppelen</button>
+    <button>Next: map columns</button>
   </form>
 </section>
 {% endblock %}

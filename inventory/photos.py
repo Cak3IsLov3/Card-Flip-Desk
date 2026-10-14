@@ -1,8 +1,8 @@
-"""Foto's per kaart: validatie, verwerking en beheer.
+"""Photos per card: validation, processing and management.
 
-Elke upload wordt opnieuw gecodeerd. Dat verkleint het bestand, maakt een
-thumbnail en laat alle metadata achter (EXIF met o.a. GPS-locatie, PNG-tekst).
-De inhoud bepaalt het type, niet de extensie of de Content-Type van de browser.
+Every upload is re-encoded. That shrinks the file, creates a thumbnail and
+leaves all metadata behind (EXIF including GPS location, PNG text chunks).
+The contents decide the type, not the extension or the browser's Content-Type.
 """
 
 import io
@@ -41,13 +41,13 @@ class ProcessedImage:
 
 
 def process_image(upload) -> ProcessedImage:
-    """Valideert en hercodeert een upload. Gooit PhotoError bij problemen."""
+    """Validate and re-encode an upload. Raises PhotoError on problems."""
     max_bytes = settings.PHOTO_MAX_UPLOAD_BYTES
     if upload.size > max_bytes:
-        raise PhotoError(f"Bestand is groter dan {max_bytes // (1024 * 1024)} MB.")
+        raise PhotoError(f"File is larger than {max_bytes // (1024 * 1024)} MB.")
 
-    # Stap 1: alleen de kop lezen; type en afmetingen controleren vóór het
-    # decoderen, zodat een "decompressiebom" nooit in het geheugen komt.
+    # Step 1: read only the header; check type and dimensions before decoding,
+    # so a "decompression bomb" never makes it into memory.
     upload.seek(0)
     try:
         with Image.open(upload) as probe:
@@ -55,25 +55,25 @@ def process_image(upload) -> ProcessedImage:
             width, height = probe.size
             probe.verify()
     except (UnidentifiedImageError, OSError, SyntaxError, Image.DecompressionBombError):
-        raise PhotoError("Dit bestand is geen geldige afbeelding.") from None
+        raise PhotoError("This file is not a valid image.") from None
 
     if fmt not in ALLOWED_FORMATS:
-        raise PhotoError("Alleen JPEG, PNG en WebP zijn toegestaan.")
+        raise PhotoError("Only JPEG, PNG and WebP are allowed.")
     limit = settings.PHOTO_MAX_INPUT_DIMENSION
     if width > limit or height > limit:
-        raise PhotoError(f"Afbeelding is te groot ({width}×{height}); maximaal {limit}×{limit} pixels.")
+        raise PhotoError(f"Image is too large ({width}×{height}); the maximum is {limit}×{limit} pixels.")
 
-    # Stap 2: echt decoderen (verify() maakt het object onbruikbaar).
+    # Step 2: actually decode (verify() leaves the object unusable).
     upload.seek(0)
     try:
         with Image.open(upload) as img:
             img.load()
             icc_profile = img.info.get("icc_profile")
-            # Draai volgens de EXIF-oriëntatie, want die tag verdwijnt straks.
+            # Rotate according to the EXIF orientation, because that tag is dropped below.
             img = ImageOps.exif_transpose(img)
             img = _normalise_mode(img, fmt)
     except (OSError, SyntaxError, Image.DecompressionBombError):
-        raise PhotoError("De afbeelding kon niet worden gelezen (beschadigd bestand?).") from None
+        raise PhotoError("The image could not be read (corrupt file?).") from None
 
     main = img.copy()
     main.thumbnail((settings.PHOTO_MAX_DIMENSION,) * 2, Image.Resampling.LANCZOS)
@@ -103,13 +103,13 @@ def _normalise_mode(img, fmt):
 
 def _encode(img, fmt, icc_profile) -> bytes:
     clean = img.copy()
-    clean.info = {}  # geen exif, xmp, tekstblokken of commentaar meenemen
+    clean.info = {}  # drop exif, xmp, text chunks and comments
     options = {"format": fmt}
     if fmt in ("JPEG", "WEBP"):
         options["quality"] = 85
     if fmt in ("JPEG", "PNG"):
         options["optimize"] = True
-    if icc_profile:  # kleurprofiel bevat geen persoonsgegevens; behouden voor juiste kleuren
+    if icc_profile:  # a colour profile holds no personal data; keep it for correct colours
         options["icc_profile"] = icc_profile
     buf = io.BytesIO()
     clean.save(buf, **options)
@@ -117,18 +117,18 @@ def _encode(img, fmt, icc_profile) -> bytes:
 
 
 # ---------------------------------------------------------------------------
-# Beheer
+# Management
 
 
 def add_photos(card: Card, uploads, label: str = PhotoLabel.OTHER) -> list[CardPhoto]:
-    """Voegt foto's toe. Alles wordt eerst gevalideerd; bij één fout wordt
-    niets opgeslagen."""
+    """Add photos. Everything is validated first; if one fails, nothing is
+    saved."""
     uploads = list(uploads)
     existing = card.photos.count()
     limit = settings.PHOTOS_PER_CARD
     if existing + len(uploads) > limit:
         raise PhotoError(
-            f"Maximaal {limit} foto's per kaart; er zijn er al {existing}."
+            f"At most {limit} photos per card; there are already {existing}."
         )
 
     processed = []
@@ -155,7 +155,7 @@ def add_photos(card: Card, uploads, label: str = PhotoLabel.OTHER) -> list[CardP
                 created.append(photo)
                 photo.save()
     except Exception:
-        # Database teruggedraaid: de al geschreven bestanden horen er ook niet te zijn.
+        # Database rolled back: the files already written should not exist either.
         storage = CardPhoto._meta.get_field("image").storage
         for photo in created:
             for name in (photo.image.name, photo.thumbnail.name):
@@ -179,7 +179,7 @@ def replace_photo(photo: CardPhoto, upload) -> CardPhoto:
 @transaction.atomic
 def delete_photo(photo: CardPhoto) -> None:
     card, was_main = photo.card, photo.is_main
-    photo.delete()  # bestanden gaan via het post_delete-signaal
+    photo.delete()  # files are removed by the post_delete signal
     if was_main:
         successor = card.photos.order_by("position", "id").first()
         if successor:
@@ -189,7 +189,7 @@ def delete_photo(photo: CardPhoto) -> None:
 
 @transaction.atomic
 def set_main(photo: CardPhoto) -> None:
-    # Eerst de oude uitzetten, anders botst de unieke constraint.
+    # Unset the old one first, otherwise the unique constraint is violated.
     photo.card.photos.filter(is_main=True).exclude(pk=photo.pk).update(is_main=False)
     if not photo.is_main:
         photo.is_main = True
@@ -198,7 +198,7 @@ def set_main(photo: CardPhoto) -> None:
 
 @transaction.atomic
 def move(photo: CardPhoto, direction: int) -> None:
-    """Verschuift een foto één plek (-1 = naar voren, +1 = naar achteren)."""
+    """Move a photo one place (-1 = earlier, +1 = later)."""
     photos = list(photo.card.photos.select_for_update().order_by("position", "id"))
     index = next(i for i, p in enumerate(photos) if p.pk == photo.pk)
     target = index + direction
@@ -212,22 +212,22 @@ def move(photo: CardPhoto, direction: int) -> None:
 
 
 def photo_checklist(card: Card, photos=None) -> list[str]:
-    """Waarschuwingen voor een listing: voor- en achterkant horen erbij."""
+    """Warnings for a listing: front and back photos belong in every listing."""
     photos = list(card.photos.all()) if photos is None else photos
     if not photos:
-        return ["Er zijn nog geen foto's."]
+        return ["There are no photos yet."]
     labels = {p.label for p in photos}
     warnings = []
     if PhotoLabel.FRONT not in labels:
-        warnings.append("Foto van de voorkant ontbreekt.")
+        warnings.append("Front photo is missing.")
     if PhotoLabel.BACK not in labels:
-        warnings.append("Foto van de achterkant ontbreekt.")
+        warnings.append("Back photo is missing.")
     return warnings
 
 
 def _store_files(photo: CardPhoto, item: ProcessedImage) -> None:
     photo.width, photo.height = item.size
-    name = f"upload.{item.extension}"  # upload_to maakt hier een willekeurige naam van
+    name = f"upload.{item.extension}"  # upload_to turns this into a random name
     photo.image.save(name, ContentFile(item.image), save=False)
     photo.thumbnail.save(name, ContentFile(item.thumbnail), save=False)
 
@@ -244,11 +244,11 @@ def _delete_files_on_commit(names) -> None:
 
 
 def _display_name(upload) -> str:
-    return getattr(upload, "name", None) or "bestand"
+    return getattr(upload, "name", None) or "file"
 
 
 @receiver(post_delete, sender=CardPhoto)
 def _remove_files(sender, instance, **kwargs):
-    # Ook bij het verwijderen van een kaart: de cascade stuurt dit signaal
-    # per foto. Pas na de commit, zodat een rollback geen bestanden kost.
+    # Also when a card is deleted: the cascade sends this signal per photo.
+    # Only after commit, so a rollback does not lose any files.
     _delete_files_on_commit([instance.image.name, instance.thumbnail.name])

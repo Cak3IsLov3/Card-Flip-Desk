@@ -1,8 +1,8 @@
 """
-Django settings voor Card Flip Desk.
+Django settings for Card Flip Desk.
 
-Gevoelige waarden komen uit omgevingsvariabelen; de defaults zijn alleen
-bedoeld voor lokale ontwikkeling.
+Sensitive values come from environment variables; the defaults are only
+meant for local development.
 """
 
 import os
@@ -93,7 +93,7 @@ LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "login"
 
 
-LANGUAGE_CODE = "nl-nl"
+LANGUAGE_CODE = "en-gb"
 TIME_ZONE = "Europe/Amsterdam"
 USE_I18N = True
 USE_TZ = True
@@ -105,9 +105,9 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
-# Foto's staan buiten elke publieke map en worden alleen via een view met
-# eigenaarscontrole uitgeleverd. Wissel naar S3-compatibele opslag door de
-# "photos"-backend te vervangen; de modellen hoeven daarvoor niet te veranderen.
+# Photos live outside any public directory and are only served through a view
+# that checks ownership. Switch to S3-compatible storage by replacing the
+# "photos" backend; the models do not need to change.
 PRIVATE_MEDIA_ROOT = Path(os.environ.get("PRIVATE_MEDIA_ROOT", BASE_DIR / "private_media"))
 
 STORAGES = {
@@ -116,14 +116,14 @@ STORAGES = {
     "photos": {"BACKEND": "inventory.storage.PrivatePhotoStorage"},
 }
 
-PHOTO_MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB per bestand
-PHOTO_MAX_INPUT_DIMENSION = 8000  # px; grotere bestanden worden geweigerd
-PHOTO_MAX_DIMENSION = 1600  # px; langste zijde na verkleinen
-PHOTO_THUMB_SIZE = 300  # px; langste zijde van de thumbnail
+PHOTO_MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB per file
+PHOTO_MAX_INPUT_DIMENSION = 8000  # px; larger images are rejected
+PHOTO_MAX_DIMENSION = 1600  # px; longest side after resizing
+PHOTO_THUMB_SIZE = 300  # px; longest side of the thumbnail
 PHOTOS_PER_CARD = 6
 
 
-# Voor links in e-mails (er is geen request om de host uit te halen).
+# For links in emails (there is no request to take the host from).
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Card Flip Desk <noreply@localhost>")
 
@@ -134,32 +134,32 @@ MAILERS = {
 }
 
 
-# eBay. Zonder EBAY_CLIENT_ID/SECRET werkt de app gewoon, alleen zonder
-# actieve eBay-prijzen. Sleutels horen in omgevingsvariabelen, nooit in git.
+# eBay. Without EBAY_CLIENT_ID/SECRET the app works fine, just without active
+# eBay prices. Keys belong in environment variables, never in git.
 EBAY_ENVIRONMENT = os.environ.get("EBAY_ENVIRONMENT", "sandbox")  # sandbox | production
 EBAY_CLIENT_ID = os.environ.get("EBAY_CLIENT_ID", "")
 EBAY_CLIENT_SECRET = os.environ.get("EBAY_CLIENT_SECRET", "")
-EBAY_RUNAME = os.environ.get("EBAY_RUNAME", "")  # redirect_uri voor de Authorization Code Flow
+EBAY_RUNAME = os.environ.get("EBAY_RUNAME", "")  # redirect_uri for the Authorization Code Flow
 EBAY_MARKETPLACE_ID = os.environ.get("EBAY_MARKETPLACE_ID", "EBAY_NL")
 EBAY_CURRENCY = os.environ.get("EBAY_CURRENCY", "EUR")
-EBAY_CATEGORY_IDS = os.environ.get("EBAY_CATEGORY_IDS", "")  # optioneel, bv. sportkaarten
+EBAY_CATEGORY_IDS = os.environ.get("EBAY_CATEGORY_IDS", "")  # optional, e.g. sports trading cards
 EBAY_USER_SCOPES = os.environ.get(
     "EBAY_USER_SCOPES",
     "https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory.readonly",
 ).split()
-EBAY_DAILY_CALL_BUDGET = int(os.environ.get("EBAY_DAILY_CALL_BUDGET", "4500"))  # eBay: 5000/dag
+EBAY_DAILY_CALL_BUDGET = int(os.environ.get("EBAY_DAILY_CALL_BUDGET", "4500"))  # eBay allows 5000/day
 EBAY_CACHE_SECONDS = int(os.environ.get("EBAY_CACHE_SECONDS", str(6 * 3600)))
 
-# Fernet-sleutel(s) voor tokens in de database, komma-gescheiden (de eerste
-# versleutelt, de rest kan nog ontsleutelen: zo roteer je sleutels).
-# Maak er een met: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# Fernet key(s) for tokens stored in the database, comma-separated (the first
+# one encrypts, the others can still decrypt: that is how you rotate keys).
+# Create one with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 TOKEN_ENCRYPTION_KEYS = [k for k in os.environ.get("TOKEN_ENCRYPTION_KEYS", "").split(",") if k]
 
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.TokenAuthentication",
-        "rest_framework.authentication.SessionAuthentication",  # voor de docs in de browser
+        "rest_framework.authentication.SessionAuthentication",  # for the docs in the browser
     ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
@@ -167,16 +167,16 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.UserRateThrottle"],
     "DEFAULT_THROTTLE_RATES": {"user": "2000/hour", "token": "10/minute"},
-    # Bedragen als string in JSON: geen float-afronding bij de afnemer.
+    # Amounts as strings in JSON: no float rounding on the client side.
     "COERCE_DECIMAL_TO_STRING": True,
 }
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Card Flip Desk API",
     "DESCRIPTION": (
-        "Voorraad, foto's, listings, verkopen en de kostencalculator. "
-        "Authenticatie met `Authorization: Token <token>`; je ziet en wijzigt alleen je eigen data. "
-        "Bedragen zijn decimale strings in euro's."
+        "Inventory, photos, listings, sales and the fee calculator. "
+        "Authenticate with `Authorization: Token <token>`; you can only see and change your own data. "
+        "Amounts are decimal strings in euros."
     ),
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,

@@ -1,19 +1,19 @@
 {% extends "base.html" %}
-{% block title %}Importrapport – Card Flip Desk{% endblock %}
+{% block title %}Import report – Card Flip Desk{% endblock %}
 {% block content %}
-<h1>Importrapport</h1>
+<h1>Import report</h1>
 <div class="stats">
-  <div class="stat"><div class="label">Geïmporteerd</div><div class="value good">{{ report.created }}</div></div>
-  <div class="stat"><div class="label">Afgekeurd</div><div class="value{% if report.errors %} bad{% endif %}">{{ report.errors|length }}</div></div>
+  <div class="stat"><div class="label">Imported</div><div class="value good">{{ report.created }}</div></div>
+  <div class="stat"><div class="label">Rejected</div><div class="value{% if report.errors %} bad{% endif %}">{{ report.errors|length }}</div></div>
 </div>
 {% if report.errors %}
 <div class="table-wrap"><table>
-  <thead><tr><th>Regel</th><th>Fouten</th></tr></thead>
+  <thead><tr><th>Line</th><th>Errors</th></tr></thead>
   <tbody>{% for err in report.errors %}
     <tr><td>{{ err.row }}</td><td>{% for field, msgs in err.errors.items %}<div><strong>{{ field }}:</strong> {{ msgs|join:" " }}</div>{% endfor %}</td></tr>
   {% endfor %}</tbody>
 </table></div>
 {% endif %}
-<div class="actions"><a class="button" href="{% url 'inventory:card_list' %}">Naar voorraad</a>
-<a class="button secondary" href="{% url 'inventory:csv_upload' %}">Nog een bestand</a></div>
+<div class="actions"><a class="button" href="{% url 'inventory:card_list' %}">Go to inventory</a>
+<a class="button secondary" href="{% url 'inventory:csv_upload' %}">Another file</a></div>
 {% endblock %}

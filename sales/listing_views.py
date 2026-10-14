@@ -8,6 +8,7 @@ from django.views.decorators.http import require_GET
 
 from finance.calculator import CostInput, calculate
 from finance.forms import money_field
+from finance.models import DEFAULT_CATEGORY
 from inventory.models import Card, CardStatus
 
 from . import listing_generator as gen
@@ -15,11 +16,11 @@ from .forms import ListingDraftForm, ListingTemplateForm
 from .models import Listing, ListingStatus, ListingTemplate
 from .services import NoFeeProfile, fees_for
 
-DEFAULT_TEMPLATE = "standaard"
+DEFAULT_TEMPLATE = "default"
 
 
 def _patterns(request, key):
-    """(sleutel, titelpatroon, beschrijvingspatroon) voor de gekozen template."""
+    """(key, title pattern, description pattern) for the chosen template."""
     if key and key != DEFAULT_TEMPLATE:
         tpl = get_object_or_404(ListingTemplate, pk=key, user=request.user)
         return str(tpl.pk), tpl.title_pattern, tpl.description_pattern
@@ -35,11 +36,11 @@ def _open_listing(card):
 
 
 def profit_preview(user, card, price):
-    """Winst bij een vraagprijs, met het kostenprofiel van vandaag."""
+    """Profit at an asking price, using today's fee profile."""
     if price is None:
         return None
     try:
-        fees = fees_for(user, "Sportkaarten", timezone.localdate())
+        fees = fees_for(user, DEFAULT_CATEGORY, timezone.localdate())
     except NoFeeProfile:
         return None
     return calculate(CostInput(sale_price=price, purchase_cost=card.total_cost), fees)
@@ -49,7 +50,7 @@ def profit_preview(user, card, price):
 def listing_generator(request, card_pk):
     card = get_object_or_404(Card, pk=card_pk, owner=request.user)
     if card.status == CardStatus.SOLD:
-        messages.info(request, "Deze kaart is al verkocht.")
+        messages.info(request, "This card has already been sold.")
         return redirect("inventory:card_detail", pk=card.pk)
 
     listing = _open_listing(card)
@@ -62,9 +63,9 @@ def listing_generator(request, card_pk):
         if form.is_valid():
             listing = _save(card, listing, form.cleaned_data, activate="activate" in request.POST)
             if listing.status == ListingStatus.ACTIVE:
-                messages.success(request, "Listing opgeslagen en als actief gemarkeerd.")
+                messages.success(request, "Listing saved and marked as active.")
             else:
-                messages.success(request, "Concept opgeslagen.")
+                messages.success(request, "Draft saved.")
             return redirect("sales:listing_generator", card_pk=card.pk)
     else:
         regenerate = "template" in request.GET or listing is None
@@ -114,7 +115,7 @@ def _save(card, listing, data, *, activate):
 @require_GET
 def listing_profit(request, card_pk):
     card = get_object_or_404(Card, pk=card_pk, owner=request.user)
-    field = money_field("Vraagprijs")
+    field = money_field("Asking price")
     try:
         price = field.clean(request.GET.get("asking_price") or None)
     except ValidationError:
@@ -136,7 +137,7 @@ def template_list(request):
         tpl = form.save(commit=False)
         tpl.user = request.user
         tpl.save()
-        messages.success(request, f"Template opgeslagen: {tpl}")
+        messages.success(request, f"Template saved: {tpl}")
         return redirect("sales:template_list")
     return render(
         request,
@@ -156,11 +157,11 @@ def template_edit(request, pk):
     if request.method == "POST":
         if "delete" in request.POST:
             tpl.delete()
-            messages.success(request, "Template verwijderd.")
+            messages.success(request, "Template deleted.")
             return redirect("sales:template_list")
         if form.is_valid():
             form.save()
-            messages.success(request, "Template bijgewerkt.")
+            messages.success(request, "Template updated.")
             return redirect("sales:template_list")
     return render(
         request, "sales/template_edit.html", {"form": form, "template": tpl, "placeholders": gen.PLACEHOLDERS}

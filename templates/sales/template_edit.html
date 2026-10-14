@@ -6,9 +6,9 @@
   <form method="post" class="panel">{% csrf_token %}
     {% include "_form_fields.html" %}
     <div class="actions">
-      <button>Opslaan</button>
-      <button class="danger" name="delete" value="1" formnovalidate>Verwijderen</button>
-      <a href="{% url 'sales:template_list' %}">Terug</a>
+      <button>Save</button>
+      <button class="danger" name="delete" value="1" formnovalidate>Delete</button>
+      <a href="{% url 'sales:template_list' %}">Back</a>
     </div>
   </form>
   <section class="panel">{% include "sales/_placeholders.html" %}</section>

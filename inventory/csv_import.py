@@ -1,7 +1,7 @@
-"""Batch-import van kaarten uit CSV.
+"""Batch import of cards from CSV.
 
-Elke rij wordt los gevalideerd en in een eigen savepoint opgeslagen: een
-foute rij komt in het rapport, maar blokkeert de rest niet.
+Each row is validated on its own and saved in its own savepoint: a bad row
+ends up in the report but does not block the others.
 """
 
 import csv
@@ -14,36 +14,36 @@ from django.utils import timezone
 
 from .models import Card, Purchase
 
-# Velden die in een CSV gekoppeld kunnen worden, met de Nederlandse label.
+# Fields that can be mapped from a CSV, with their display label.
 IMPORT_FIELDS = {
-    "player": "Speler",
+    "player": "Player",
     "sport": "Sport",
     "set_name": "Set",
-    "year": "Jaar",
-    "card_number": "Kaartnummer",
+    "year": "Year",
+    "card_number": "Card number",
     "variant": "Variant",
-    "condition": "Conditie",
-    "notes": "Notities",
-    "purchase_price": "Inkoopprijs",
-    "shipping_in": "Verzendkosten in",
-    "purchase_date": "Inkoopdatum",
-    "source": "Bron",
+    "condition": "Condition",
+    "notes": "Notes",
+    "purchase_price": "Purchase price",
+    "shipping_in": "Inbound shipping",
+    "purchase_date": "Purchase date",
+    "source": "Source",
 }
 REQUIRED_FIELDS = {"player", "set_name", "year"}
 
-# Herkenning van veelgebruikte kolomnamen voor de voorgestelde koppeling.
+# Common column names (English and Dutch) used to suggest a mapping.
 HEADER_ALIASES = {
     "player": {"player", "speler", "naam", "name"},
     "sport": {"sport"},
     "set_name": {"set", "set_name", "serie"},
     "year": {"year", "jaar"},
-    "card_number": {"card_number", "number", "nummer", "kaartnummer", "#"},
+    "card_number": {"card_number", "card number", "number", "no", "nummer", "kaartnummer", "#"},
     "variant": {"variant", "type"},
     "condition": {"condition", "conditie", "staat"},
     "notes": {"notes", "notities", "opmerkingen"},
-    "purchase_price": {"purchase_price", "price", "inkoopprijs", "prijs", "inkoop"},
-    "shipping_in": {"shipping_in", "verzendkosten", "verzending"},
-    "purchase_date": {"purchase_date", "date", "datum", "inkoopdatum"},
+    "purchase_price": {"purchase_price", "purchase price", "price", "cost", "inkoopprijs", "prijs", "inkoop"},
+    "shipping_in": {"shipping_in", "shipping", "verzendkosten", "verzending"},
+    "purchase_date": {"purchase_date", "purchase date", "date", "datum", "inkoopdatum"},
     "source": {"source", "bron"},
 }
 
@@ -62,7 +62,7 @@ class CardRowForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Een lege variant betekent "base", niet "fout".
+        # An empty variant means "base", not "invalid".
         self.fields["variant"].required = False
 
     def clean_variant(self):
@@ -72,13 +72,13 @@ class CardRowForm(forms.ModelForm):
         cleaned = super().clean()
         has_purchase_details = cleaned.get("shipping_in") or cleaned.get("purchase_date")
         if has_purchase_details and cleaned.get("purchase_price") is None:
-            self.add_error("purchase_price", "Inkoopprijs ontbreekt bij inkoopgegevens.")
+            self.add_error("purchase_price", "Purchase price is missing while other purchase details are filled in.")
         return cleaned
 
 
 @dataclass
 class RowError:
-    row: int  # regelnummer in het bestand (kopregel = 1)
+    row: int  # line number in the file (header = 1)
     errors: dict[str, list[str]]
 
 
@@ -98,7 +98,7 @@ def read_header(content: str) -> list[str]:
 
 
 def suggest_mapping(headers: list[str]) -> dict[str, str]:
-    """Stelt een koppeling voor van importveld -> CSV-kolom."""
+    """Suggest a mapping of import field -> CSV column."""
     mapping = {}
     for header in headers:
         key = header.strip().lower()
@@ -114,23 +114,23 @@ def decode(raw: bytes) -> str:
             return raw.decode(encoding)
         except UnicodeDecodeError:
             continue
-    raise ValueError("Bestand is geen leesbare tekst (UTF-8 of Windows-1252).")
+    raise ValueError("File is not readable text (UTF-8 or Windows-1252).")
 
 
 def import_cards(content: str, mapping: dict[str, str], owner) -> ImportReport:
-    """Importeert kaarten. `mapping` koppelt importveld -> CSV-kolomnaam."""
+    """Import cards. `mapping` maps import field -> CSV column name."""
     missing = REQUIRED_FIELDS - {k for k, v in mapping.items() if v}
     if missing:
         labels = ", ".join(IMPORT_FIELDS[m] for m in sorted(missing))
-        raise ValueError(f"Verplichte velden niet gekoppeld: {labels}.")
+        raise ValueError(f"Required fields not mapped: {labels}.")
 
     report = ImportReport()
     reader = csv.DictReader(io.StringIO(content), dialect=_sniff(content))
     for row in reader:
-        # line_num telt echte bestandsregels, ook de lege die DictReader overslaat.
+        # line_num counts real file lines, including blank ones DictReader skips.
         line_no = reader.line_num
         if not any((v or "").strip() for v in row.values() if isinstance(v, str)):
-            continue  # lege regel
+            continue  # blank line
         data = {
             target: (row.get(column) or "").strip()
             for target, column in mapping.items()
@@ -138,6 +138,7 @@ def import_cards(content: str, mapping: dict[str, str], owner) -> ImportReport:
         }
         for money_field in ("purchase_price", "shipping_in"):
             if data.get(money_field):
+                # Accept "€ 4,50" as well as "4.50" (European exports use a decimal comma).
                 data[money_field] = data[money_field].replace("€", "").replace(",", ".").strip()
 
         form = CardRowForm(data)
@@ -159,7 +160,7 @@ def import_cards(content: str, mapping: dict[str, str], owner) -> ImportReport:
                         date=form.cleaned_data.get("purchase_date") or timezone.localdate(),
                         source=form.cleaned_data.get("source") or "",
                     )
-        except Exception as exc:  # databasefout op één rij mag de rest niet stoppen
+        except Exception as exc:  # a database error on one row must not stop the rest
             report.errors.append(RowError(line_no, {"__all__": [str(exc)]}))
             continue
         report.created += 1
@@ -168,7 +169,7 @@ def import_cards(content: str, mapping: dict[str, str], owner) -> ImportReport:
 
 def _plain_errors(form) -> dict[str, list[str]]:
     return {
-        IMPORT_FIELDS.get(name, "Rij"): [str(e) for e in errs]
+        IMPORT_FIELDS.get(name, "Row"): [str(e) for e in errs]
         for name, errs in form.errors.items()
     }
 
@@ -178,8 +179,8 @@ class _Dialect(csv.excel):
 
 
 def _sniff(content: str):
-    # Kies het scheidingsteken op basis van de kopregel: daar staan geen
-    # bedragen met decimale komma's die csv.Sniffer in de war brengen.
+    # Pick the delimiter from the header row: it has no amounts with decimal
+    # commas that would confuse csv.Sniffer.
     header = content.lstrip("﻿").splitlines()[0] if content else ""
     dialect = type("Detected", (_Dialect,), {})
     dialect.delimiter = max(";,\t", key=header.count) if header else ","

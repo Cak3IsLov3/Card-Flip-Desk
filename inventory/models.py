@@ -11,9 +11,9 @@ from .storage import photo_storage
 
 
 class CardStatus(models.TextChoices):
-    IN_STOCK = "in_stock", "In voorraad"
-    FOR_SALE = "for_sale", "Te koop"
-    SOLD = "sold", "Verkocht"
+    IN_STOCK = "in_stock", "In stock"
+    FOR_SALE = "for_sale", "For sale"
+    SOLD = "sold", "Sold"
 
 
 class Variant(models.TextChoices):
@@ -39,7 +39,7 @@ class CardQuerySet(models.QuerySet):
         )
 
     def with_cost(self):
-        """Annoteert de totale inkoopkosten (prijs + verzending in)."""
+        """Annotate the total purchase cost (price + inbound shipping)."""
         zero = models.Value(Decimal("0.00"), output_field=models.DecimalField())
         return self.annotate(
             cost_total=Coalesce(
@@ -50,7 +50,7 @@ class CardQuerySet(models.QuerySet):
         )
 
     def inventory_value(self):
-        """Totale inkoopwaarde van alles wat nog niet verkocht is."""
+        """Total purchase value of everything not yet sold."""
         return self.exclude(status=CardStatus.SOLD).aggregate(
             total=Coalesce(
                 Sum(models.F("purchases__price") + models.F("purchases__shipping_in")),
@@ -60,10 +60,10 @@ class CardQuerySet(models.QuerySet):
         )["total"]
 
     def with_age_start(self):
-        """Annoteert `age_start`: de datum vanaf waar de leeftijd telt.
+        """Annotate `age_start`: the date from which a card's age is counted.
 
-        Te koop: vanaf 'te koop sinds'. Anders (of als die ontbreekt): vanaf
-        de eerste inkoop, en zonder inkoop vanaf het moment van invoeren.
+        For sale: from 'listed since'. Otherwise (or if that is missing): from
+        the first purchase, and without a purchase from when it was entered.
         """
         first_purchase = (
             Purchase.objects.filter(card=OuterRef("pk")).order_by("date").values("date")[:1]
@@ -81,7 +81,7 @@ class CardQuerySet(models.QuerySet):
         return self.filter(Q(held_until__isnull=True) | Q(held_until__lt=today))
 
     def unsold_by_age(self):
-        """Onverkochte kaarten met inkoopkosten, oudste inkoop eerst."""
+        """Unsold cards with their purchase cost, oldest purchase first."""
         return (
             self.exclude(status=CardStatus.SOLD)
             .with_cost()
@@ -101,21 +101,21 @@ class Card(models.Model):
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="cards"
     )
-    player = models.CharField("speler", max_length=120)
+    player = models.CharField(max_length=120)
     sport = models.CharField(max_length=60, blank=True)
     set_name = models.CharField("set", max_length=120)
-    year = models.PositiveSmallIntegerField("jaar")
-    card_number = models.CharField("kaartnummer", max_length=30, blank=True)
+    year = models.PositiveSmallIntegerField()
+    card_number = models.CharField("card number", max_length=30, blank=True)
     variant = models.CharField(
         max_length=20, choices=Variant.choices, default=Variant.BASE
     )
-    condition = models.CharField("conditie", max_length=60, blank=True)
-    notes = models.TextField("notities", blank=True)
+    condition = models.CharField(max_length=60, blank=True)
+    notes = models.TextField(blank=True)
     status = models.CharField(
         max_length=20, choices=CardStatus.choices, default=CardStatus.IN_STOCK
     )
-    listed_since = models.DateField("te koop sinds", null=True, blank=True)
-    held_until = models.DateField("vastgehouden tot", null=True, blank=True)
+    listed_since = models.DateField(null=True, blank=True)
+    held_until = models.DateField("held until", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -142,16 +142,16 @@ class Card(models.Model):
 
 
 class PhotoLabel(models.TextChoices):
-    FRONT = "front", "Voorkant"
-    BACK = "back", "Achterkant"
-    CORNER = "corner", "Hoek"
+    FRONT = "front", "Front"
+    BACK = "back", "Back"
+    CORNER = "corner", "Corner"
     DEFECT = "defect", "Defect"
-    OTHER = "other", "Overig"
+    OTHER = "other", "Other"
 
 
 def photo_upload_to(instance, filename):
-    # De naam die hier binnenkomt komt van ons (bijv. "upload.jpg"), nooit
-    # van de gebruiker; alleen de extensie wordt overgenomen.
+    # The name passed in comes from us (e.g. "upload.jpg"), never from the
+    # user; only the extension is kept.
     ext = os.path.splitext(filename)[1].lower()
     return f"cards/{uuid.uuid4().hex}{ext}"
 
@@ -168,10 +168,10 @@ class CardPhoto(models.Model):
     width = models.PositiveIntegerField(default=0)
     height = models.PositiveIntegerField(default=0)
     content_type = models.CharField(max_length=20)
-    position = models.PositiveSmallIntegerField("volgorde", default=0)
-    is_main = models.BooleanField("hoofdfoto", default=False)
+    position = models.PositiveSmallIntegerField(default=0)
+    is_main = models.BooleanField("main photo", default=False)
     label = models.CharField(max_length=10, choices=PhotoLabel.choices, default=PhotoLabel.OTHER)
-    uploaded_at = models.DateTimeField("geüpload op", auto_now_add=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["position", "id"]
@@ -186,18 +186,18 @@ class CardPhoto(models.Model):
 
 
 class StaleThreshold(models.Model):
-    """Drempels voor oude voorraad, per gebruiker instelbaar."""
+    """Stale-inventory thresholds, configurable per user."""
 
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="stale_threshold"
     )
-    warning_days = models.PositiveSmallIntegerField("waarschuwing na (dagen)", default=30)
-    action_days = models.PositiveSmallIntegerField("actie na (dagen)", default=60)
-    critical_days = models.PositiveSmallIntegerField("kritiek na (dagen)", default=90)
+    warning_days = models.PositiveSmallIntegerField("warning after (days)", default=30)
+    action_days = models.PositiveSmallIntegerField("action after (days)", default=60)
+    critical_days = models.PositiveSmallIntegerField("critical after (days)", default=90)
     price_drop_percentage = models.DecimalField(
-        "voorgestelde prijsverlaging %", max_digits=4, decimal_places=1, default=Decimal("10.0")
+        "suggested price drop %", max_digits=4, decimal_places=1, default=Decimal("10.0")
     )
-    weekly_email = models.BooleanField("wekelijks overzicht per e-mail", default=True)
+    weekly_email = models.BooleanField("weekly email digest", default=True)
     last_digest_sent_on = models.DateField(null=True, blank=True, editable=False)
 
     class Meta:
@@ -211,7 +211,7 @@ class StaleThreshold(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.warning_days}/{self.action_days}/{self.critical_days} dagen"
+        return f"{self.warning_days}/{self.action_days}/{self.critical_days} days"
 
     @classmethod
     def for_user(cls, user):
@@ -220,18 +220,18 @@ class StaleThreshold(models.Model):
 
 
 class NoteKind(models.TextChoices):
-    PINNED = "pinned", "Vastgezet"
-    UNPINNED = "unpinned", "Losgemaakt"
-    PRICE_LOWERED = "price_lowered", "Prijs verlaagd"
-    BUNDLED = "bundled", "Gebundeld"
+    PINNED = "pinned", "Pinned"
+    UNPINNED = "unpinned", "Unpinned"
+    PRICE_LOWERED = "price_lowered", "Price lowered"
+    BUNDLED = "bundled", "Bundled"
 
 
 class InventoryNote(models.Model):
-    """Logboek van acties op oude voorraad."""
+    """Log of actions taken on stale inventory."""
 
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="inventory_notes")
-    kind = models.CharField("type", max_length=20, choices=NoteKind.choices)
-    created_at = models.DateTimeField("gemaakt op", auto_now_add=True)
+    kind = models.CharField(max_length=20, choices=NoteKind.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
     details = models.JSONField(default=dict, blank=True)
 
     class Meta:
@@ -243,12 +243,12 @@ class InventoryNote(models.Model):
 
 class Purchase(models.Model):
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="purchases")
-    price = models.DecimalField("inkoopprijs", max_digits=10, decimal_places=2)
+    price = models.DecimalField("purchase price", max_digits=10, decimal_places=2)
     shipping_in = models.DecimalField(
-        "verzendkosten in", max_digits=10, decimal_places=2, default=Decimal("0.00")
+        "inbound shipping", max_digits=10, decimal_places=2, default=Decimal("0.00")
     )
-    date = models.DateField("datum")
-    source = models.CharField("bron", max_length=120, blank=True)
+    date = models.DateField()
+    source = models.CharField(max_length=120, blank=True)
 
     class Meta:
         ordering = ["-date"]

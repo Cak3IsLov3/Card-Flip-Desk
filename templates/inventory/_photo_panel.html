@@ -1,11 +1,11 @@
 <section class="panel" id="photo-panel">
-  <h2>Foto's <span class="muted">({{ photos|length }}/{{ photo_limit }})</span></h2>
+  <h2>Photos <span class="muted">({{ photos|length }}/{{ photo_limit }})</span></h2>
 
   {% for e in photo_errors %}<div class="msg msg-error">{{ e }}</div>{% endfor %}
   {% if photo_checklist %}
     <ul class="checklist">{% for w in photo_checklist %}<li>⚠ {{ w }}</li>{% endfor %}</ul>
   {% else %}
-    <p class="good">✓ Voor- en achterkant aanwezig.</p>
+    <p class="good">✓ Front and back present.</p>
   {% endif %}
 
   {% if photos %}
@@ -13,39 +13,39 @@
     {% for photo in photos %}
     <li class="photo{% if photo.is_main %} is-main{% endif %}">
       <a href="{% url 'inventory:photo_file' photo.pk %}" target="_blank" rel="noopener">
-        <img src="{% url 'inventory:photo_thumb' photo.pk %}" alt="{{ photo.get_label_display }} van {{ card }}" loading="lazy">
+        <img src="{% url 'inventory:photo_thumb' photo.pk %}" alt="{{ photo.get_label_display }} of {{ card }}" loading="lazy">
       </a>
-      {% if photo.is_main %}<span class="badge badge-for_sale">Hoofdfoto</span>{% endif %}
+      {% if photo.is_main %}<span class="badge badge-for_sale">Main photo</span>{% endif %}
 
       <form method="post" action="{% url 'inventory:photo_label' photo.pk %}"
             hx-post="{% url 'inventory:photo_label' photo.pk %}" hx-target="#photo-panel" hx-swap="outerHTML" hx-trigger="change">
         {% csrf_token %}
-        <select name="label" aria-label="Soort foto">
+        <select name="label" aria-label="Photo type">
           {% for value, text in label_choices %}<option value="{{ value }}"{% if value == photo.label %} selected{% endif %}>{{ text }}</option>{% endfor %}
         </select>
-        <noscript><button>Opslaan</button></noscript>
+        <noscript><button>Save</button></noscript>
       </form>
 
       <div class="photo-actions">
         {% if not forloop.first %}
-        <form method="post" action="{% url 'inventory:photo_move_up' photo.pk %}" hx-post="{% url 'inventory:photo_move_up' photo.pk %}" hx-target="#photo-panel" hx-swap="outerHTML">{% csrf_token %}<button class="secondary" title="Naar voren" aria-label="Naar voren">←</button></form>
+        <form method="post" action="{% url 'inventory:photo_move_up' photo.pk %}" hx-post="{% url 'inventory:photo_move_up' photo.pk %}" hx-target="#photo-panel" hx-swap="outerHTML">{% csrf_token %}<button class="secondary" title="Move earlier" aria-label="Move earlier">←</button></form>
         {% endif %}
         {% if not forloop.last %}
-        <form method="post" action="{% url 'inventory:photo_move_down' photo.pk %}" hx-post="{% url 'inventory:photo_move_down' photo.pk %}" hx-target="#photo-panel" hx-swap="outerHTML">{% csrf_token %}<button class="secondary" title="Naar achteren" aria-label="Naar achteren">→</button></form>
+        <form method="post" action="{% url 'inventory:photo_move_down' photo.pk %}" hx-post="{% url 'inventory:photo_move_down' photo.pk %}" hx-target="#photo-panel" hx-swap="outerHTML">{% csrf_token %}<button class="secondary" title="Move later" aria-label="Move later">→</button></form>
         {% endif %}
         {% if not photo.is_main %}
-        <form method="post" action="{% url 'inventory:photo_set_main' photo.pk %}" hx-post="{% url 'inventory:photo_set_main' photo.pk %}" hx-target="#photo-panel" hx-swap="outerHTML">{% csrf_token %}<button class="secondary">Hoofdfoto</button></form>
+        <form method="post" action="{% url 'inventory:photo_set_main' photo.pk %}" hx-post="{% url 'inventory:photo_set_main' photo.pk %}" hx-target="#photo-panel" hx-swap="outerHTML">{% csrf_token %}<button class="secondary">Make main</button></form>
         {% endif %}
-        <form method="post" action="{% url 'inventory:photo_delete' photo.pk %}" hx-post="{% url 'inventory:photo_delete' photo.pk %}" hx-target="#photo-panel" hx-swap="outerHTML" hx-confirm="Deze foto verwijderen?">{% csrf_token %}<button class="danger">Verwijderen</button></form>
+        <form method="post" action="{% url 'inventory:photo_delete' photo.pk %}" hx-post="{% url 'inventory:photo_delete' photo.pk %}" hx-target="#photo-panel" hx-swap="outerHTML" hx-confirm="Delete this photo?">{% csrf_token %}<button class="danger">Delete</button></form>
       </div>
 
       <details>
-        <summary>Vervangen</summary>
+        <summary>Replace</summary>
         <form method="post" enctype="multipart/form-data" action="{% url 'inventory:photo_replace' photo.pk %}"
               hx-post="{% url 'inventory:photo_replace' photo.pk %}" hx-encoding="multipart/form-data" hx-target="#photo-panel" hx-swap="outerHTML">
           {% csrf_token %}
-          <input type="file" name="file" accept="image/jpeg,image/png,image/webp" required aria-label="Nieuwe foto">
-          <button>Vervangen</button>
+          <input type="file" name="file" accept="image/jpeg,image/png,image/webp" required aria-label="New photo">
+          <button>Replace</button>
         </form>
       </details>
     </li>
@@ -58,10 +58,10 @@
         hx-post="{% url 'inventory:photo_upload' card.pk %}" hx-encoding="multipart/form-data" hx-target="#photo-panel" hx-swap="outerHTML">
     {% csrf_token %}
     {% include "_form_fields.html" with form=upload_form %}
-    <p class="muted">JPEG, PNG of WebP, maximaal 10 MB per foto. Foto's worden verkleind en locatie- en cameragegevens (EXIF) worden verwijderd.</p>
-    <button>Uploaden</button>
+    <p class="muted">JPEG, PNG or WebP, up to 10 MB per photo. Photos are resized and location and camera data (EXIF) is removed.</p>
+    <button>Upload</button>
   </form>
   {% else %}
-    <p class="muted">Maximum aantal foto's bereikt. Verwijder of vervang een foto.</p>
+    <p class="muted">Maximum number of photos reached. Delete or replace a photo.</p>
   {% endif %}
 </section>

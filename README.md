@@ -1,249 +1,402 @@
 # Card Flip Desk
 
-Django-app die het verkooptraject van sportkaarten bijhoudt, van inkoop tot
-verkoop op eBay, en uitrekent wat er na alle kosten echt overblijft.
+A Django app that tracks the full sales cycle of sports cards, from purchase
+to sale on eBay, and works out what is really left after all fees. It also
+helps with pricing, photos, writing listings and warning you about stock that
+is not moving.
 
-## Status
+Built as a portfolio project, but meant to be used for real: every amount is
+a `Decimal`, business rules live in testable services, uploads are handled
+safely, OAuth runs against an external provider, and the app keeps working
+when eBay goes down.
 
-| MVP-stap | Onderdeel | Status |
-|---|---|---|
-| 1 | Project, accounts, kaartmodel, voorraad-CRUD | ✅ |
-| 2 | CSV-import met kolomkoppeling en foutrapport | ✅ |
-| 3 | Kostencalculator met FeeProfile (vooruit en omgekeerd) | ✅ |
-| 4 | Verkopen registreren, winst per kaart en per maand | ✅ |
-| 5 | Foto's per kaart (validatie, thumbnails, EXIF weg, privé-opslag) | ✅ |
-| 6 | Dashboard met KPI's, grafieken en voorraadleeftijd | ✅ |
-| 7 | Listing-generator met templates en controles | ✅ |
-| 8 | Waarschuwingen voor oude voorraad, 'Aandacht nodig', wekelijkse mail | ✅ |
-| 9 | eBay OAuth + Browse API voor prijsadvies | ✅ |
-| 10 | REST API met token-auth en OpenAPI-docs | ✅ |
-| 11 | README met screenshots en architectuur | open |
+![Dashboard](docs/screenshots/01-dashboard.jpg)
 
-## Starten
+| | |
+|---|---|
+| ![Charts](docs/screenshots/02-dashboard-charts.jpg) **Dashboard:** revenue and profit per month, margin per set, fastest and slowest sellers | ![Inventory](docs/screenshots/03-inventory.jpg) **Inventory:** filters, main photo, age with colour and label |
+| ![Photos](docs/screenshots/04-photos.jpg) **Photos:** front and back, main photo, ordering, checklist | ![Listing generator](docs/screenshots/05-listing-generator.jpg) **Listing generator:** title of at most 80 characters, checks, profit at the asking price |
+| ![Needs attention](docs/screenshots/06-attention.jpg) **Needs attention:** a suggestion per card; a price drop shows the new profit straight away | ![Calculator](docs/screenshots/07-calculator.jpg) **Calculator:** from price to profit and from profit to price |
+| ![API docs](docs/screenshots/08-api-docs.jpg) **REST API:** OpenAPI docs with token authentication | |
+
+*The card images are generated placeholders from `seed_demo`.*
+
+---
+
+## Contents
+
+- [Features](#features)
+- [Quick start](#quick-start)
+- [Architecture](#architecture)
+- [Business rules](#business-rules)
+- [Security](#security)
+- [eBay integration](#ebay-integration)
+- [REST API](#rest-api)
+- [Configuration](#configuration)
+- [Tests](#tests)
+- [Known limitations and next steps](#known-limitations-and-next-steps)
+
+## Features
+
+| | |
+|---|---|
+| **Inventory** | Cards with purchases, filters and search (HTMX), inventory value, counts per set. CSV import with column mapping; bad rows end up in a report without blocking the rest. |
+| **Calculator** | Commission, payment fees, net, profit and margin. Also in reverse: "I want €X profit" gives the lowest asking price. Rates live in fee profiles, not in the code. |
+| **Photos** | 1–6 per card, with a main photo and ordering. Resized, thumbnailed, EXIF removed, and only visible to the owner. |
+| **Sales and dashboard** | Fees recorded at the rate that applied on the sale date. Profit per card, set and month, weighted margin, days to sale, and money tied up in stock. |
+| **Listing generator** | Templates with placeholders, length check, photo checklist, copy buttons and profit at the asking price. |
+| **Stale inventory** | Per-user thresholds (30/60/90), colour coding, "Needs attention" with a suggestion per card, pinning, weekly email. |
+| **Price advice** | Active eBay listings (Browse API) next to your own sales history: minimum, median, maximum and a suggested price. |
+| **REST API** | DRF with token authentication, own data only, OpenAPI docs. |
+
+## Quick start
+
+Requires Python 3.12+ (developed on 3.14).
 
 ```bash
 python -m venv .venv
-.venv\Scripts\pip install -r requirements.txt
+.venv\Scripts\pip install -r requirements.txt     # macOS/Linux: .venv/bin/pip
 .venv\Scripts\python manage.py migrate
-.venv\Scripts\python manage.py seed_demo   # lokaal demo-account, zie inventory/management/commands/seed_demo.py
+.venv\Scripts\python manage.py seed_demo          # demo account with cards, sales and photos
 .venv\Scripts\python manage.py runserver
 ```
 
-Tests: `.venv\Scripts\python -m pytest`
+Open <http://localhost:8000>. The demo account's login details are in
+[`seed_demo.py`](inventory/management/commands/seed_demo.py); the command
+refuses to run without `DEBUG`. You can also create your own account via
+*Sign up*, which gives you a sample fee profile.
 
-## Architectuur
+Without eBay keys everything works except the active listings in the price
+advice. See [Configuration](#configuration).
+
+## Architecture
+
+### Apps and dependencies
+
+```mermaid
+flowchart LR
+    subgraph Web["Web (Django views + HTMX)"]
+        direction TB
+        V[views / templates]
+    end
+    API[api<br/>DRF viewsets]
+
+    subgraph Domain
+        direction TB
+        INV[inventory<br/>Card · Purchase · CardPhoto<br/>photos · aging · digest · csv_import]
+        FIN[finance<br/>calculator · FeeProfile]
+        SAL[sales<br/>Listing · Sale · services<br/>dashboard · listing_generator]
+        PRI[pricing<br/>advice · PriceSnapshot]
+    end
+    EB[ebay<br/>client · oauth · crypto]
+    EXT[(eBay REST API)]
+
+    V --> INV & SAL & FIN & PRI & EB
+    API --> INV & SAL & FIN
+    SAL --> INV & FIN
+    INV --> FIN
+    PRI --> EB & SAL & INV & FIN
+    EB --> EXT
+```
+
+| App | Responsible for |
+|---|---|
+| `finance` | `calculator.py`: pure functions without a database (Decimal, rounding, reverse calculation). `FeeProfile` per category with `valid_from`. |
+| `inventory` | Cards, purchases and photos. `photos.py` (validation, re-encoding, management), `storage.py` (private storage), `aging.py` (age and suggestions), `digest.py` (weekly email), `csv_import.py`. |
+| `sales` | Listings, sales and templates. `services.register_sale`, `dashboard.py`, `listing_generator.py`. |
+| `pricing` | Price advice: filtering eBay results, own history, suggested price, snapshots. |
+| `ebay` | HTTP client with tokens, retries, budget and ETag cache; Authorization Code Flow; encrypted token storage. Knows nothing about the rest of the app. |
+| `api` | Serializers and viewsets. No business rules of its own: everything goes through the same services. |
+
+### Layers
 
 ```
-config/      settings, urls, registratie (maakt een startkostenprofiel aan)
-inventory/   Card, Purchase, CardQuerySet (filters, voorraadwaarde), CSV-import,
-             CardPhoto + photos.py (verwerking), storage.py (privé-opslag),
-             aging.py (leeftijd + voorstellen), digest.py (wekelijkse mail)
-finance/     calculator.py (pure functies), FeeProfile
-sales/       Listing, Sale, SaleQuerySet (winst via subquery), services.register_sale,
-             dashboard.py (voegt queryset-cijfers samen, expliciete 'today'),
-             listing_generator.py (titels/beschrijvingen uit patronen), ListingTemplate
-ebay/        client.py (tokens, retries, budget, ETag-cache), oauth.py, crypto.py
-pricing/     advice.py (actieve listings + eigen historie), PriceSnapshot
-api/         DRF-serializers en viewsets, token-pagina
-tests/       pytest-django, respx voor eBay-mocks
+view / API view   thin: validate input, call a service, render
+      │
+service           business rules: register_sale, add_photos, stale_items, build_advice, generate
+      │
+queryset methods  every aggregation in the database: with_cost, with_profit, with_age_start, per_set …
+      │
+models            data + constraints (one main photo, increasing thresholds, unique tokens)
 ```
 
-**Bedrijfsregels in services, niet in views.** `finance/calculator.py` heeft
-geen database-afhankelijkheid; views roepen het alleen aan.
+A few choices that come back throughout:
 
-### Rekenregels (calculator)
+- **A pure arithmetic core.** `finance/calculator.py` knows nothing about
+  Django. The web app, the API, the listing generator, price advice and the
+  attention list all use the same `calculate()` and `required_price()`.
+- **An explicit "today".** `aging`, `dashboard`, `digest` and `build_advice`
+  receive `today` as an argument, so boundaries (exactly on the threshold, a
+  day before or after) can be tested without touching the clock.
+- **A fixed number of queries.** Lists and dashboards use annotations,
+  subqueries and `Prefetch`. Tests use `django_assert_max_num_queries` to make
+  sure the count does not grow with the data.
+- **Amounts recorded at the moment itself.** A sale stores its commission and
+  fees at the rate that applied then, so a rate change never alters past
+  profits.
+- **One path for the rules.** Photo validation, recording a sale and the
+  listing generator are services. The web app and the API call the same code.
 
-- Alles in `Decimal`; een float geeft een `TypeError`.
-- Commissie en betaalkosten over prijs + verzendopbrengst.
-- Elke kostenpost apart afgerond op centen, `ROUND_HALF_UP`.
-- Marge = winst / bruto × 100, op 0,1 afgerond; `None` bij bruto 0.
-- Omgekeerd rekenen geeft de **laagste** prijs die de doelwinst haalt. Door
-  afronding kan dat een cent onder de "naïeve" prijs liggen.
+### A request end to end: price advice
 
-### Tarieven
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant V as pricing.views
+    participant A as pricing.advice
+    participant C as ebay.client
+    participant DB as CachedResponse
+    participant E as eBay Browse API
 
-Tarieven staan in `FeeProfile` (per categorie, met `valid_from`), niet in de
-code. Een verkoop gebruikt het profiel dat op de verkoopdatum gold en slaat
-de berekende bedragen op, zodat een latere tariefwijziging oude winsten niet
-verandert. Het startprofiel (13,25 % + € 0,35) is een voorbeeld; controleer
-de actuele tarieven in je eBay-account.
+    U->>V: POST /pricing/card/42/ (HTMX)
+    V->>A: build_advice(card, today)
+    A->>C: search_items(query)
+    C->>DB: response younger than 6 hours?
+    alt fresh in cache
+        DB-->>C: data
+    else expired or missing
+        C->>C: application token (cache) and daily budget
+        C->>E: GET item_summary/search + If-None-Match
+        alt 200 / 304
+            E-->>C: data (or 304 → cache)
+            C->>DB: store with ETag
+        else 429 / 5xx / network
+            C->>C: backoff, retry (max. 3×)
+            C-->>A: old copy (stale) or EbayUnavailable
+        end
+    end
+    A->>A: filter currency + player name, statistics, own history
+    A->>A: suggested price → calculator (profit, margin)
+    A-->>V: Advice
+    V-->>U: HTML fragment
+```
 
-### Toegang
+### Folders
 
-Elke view filtert op `owner=request.user` en geeft 404 (niet 403) bij
-andermans data. Dit wordt per endpoint getest.
+```
+config/        settings, urls, sign-up
+inventory/     cards, purchases, photos, stale inventory, CSV import, management commands
+finance/       calculator and fee profiles
+sales/         listings, sales, dashboard, listing generator
+pricing/       price advice
+ebay/          eBay client, OAuth, encryption
+api/           REST API (DRF + drf-spectacular)
+templates/     Django templates (HTMX fragments start with _)
+static/        CSS, dashboard.js (Chart.js), listing.js
+tests/         pytest-django; respx for eBay
+docs/          screenshots
+```
 
-### Foto's
+**Stack:** Django 6.1, Django REST Framework, drf-spectacular, HTMX 2,
+Chart.js 4, Pillow, httpx, cryptography (Fernet), SQLite (PostgreSQL works
+too), pytest-django and respx.
 
-- **Inhoud bepaalt het type.** Pillow leest de kop; alleen JPEG, PNG en WebP
-  komen door. Extensie en Content-Type van de browser tellen niet.
-- **Limieten vóór decoderen.** Bestandsgrootte (10 MB) en afmetingen
-  (8000 px) worden gecontroleerd voordat de pixels in het geheugen komen.
-- **Alles wordt hercodeerd.** Verkleind tot 1600 px plus een thumbnail van
-  300 px. Daarbij verdwijnen EXIF (GPS, camera), XMP en PNG-tekstblokken; de
-  EXIF-oriëntatie wordt eerst toegepast. Het kleurprofiel blijft.
-- **Willekeurige namen.** `cards/<uuid>.<ext>`; de bestandsnaam van de
-  gebruiker komt nergens in het pad.
-- **Geen publieke URL.** Bestanden staan in `PRIVATE_MEDIA_ROOT` en worden
-  uitgeleverd door een view die de eigenaar controleert
-  (`Cache-Control: private`). `storage.url()` gooit bewust een fout.
-  Overstappen op S3 = de `photos`-backend in `STORAGES` vervangen.
-- **Maximaal één hoofdfoto**, afgedwongen met een database-constraint.
-- **Opruimen na commit.** Bij verwijderen of vervangen (ook via het
-  verwijderen van een kaart) gaan de bestanden pas weg als de transactie
-  slaagt.
+## Business rules
+
+### Calculator
+
+- **`Decimal` only:** a float raises a `TypeError`.
+- **Basis:** commission and payment fees are charged on the price plus the
+  shipping charged.
+- **Rounding:** every cost item is rounded to cents on its own with
+  `ROUND_HALF_UP`. Net and profit are sums of rounded items.
+- **Margin:** profit / gross × 100, rounded to 0.1; `None` when gross is 0.
+- **Reverse calculation:** returns the **lowest** price that reaches the
+  target profit. Because of rounding that can be a cent below the "naive"
+  price (a profit of €5.24 needs €9.99, not €10.00). Tested over 136 target
+  profits and four fee profiles.
+
+Rates live in `FeeProfile`, per category and with a `valid_from`. The starter
+profile (13.25% + €0.35) is an example; check the current eBay rates.
+
 ### Dashboard
 
-- **Query's in querysets** (`SaleQuerySet.totals/per_set/with_days_to_sale`,
-  `CardQuerySet.unsold_by_age`); `sales/dashboard.py` voegt ze samen en krijgt
-  `today` mee, zodat periodegrenzen zonder klokmanipulatie te testen zijn.
-  De hele pagina draait in een vast, getest maximum aantal query's.
-- **Marge is gewogen:** totale winst ÷ totale omzet, niet het gemiddelde van
-  losse marges (dan telt een kaart van € 1 even zwaar als een van € 50).
-- **Dagen tot verkoop** tellen vanaf "te koop sinds", anders vanaf de eerste
-  inkoopdatum.
-- **Periodefilter** (30 / 90 dagen, 12 maanden, alles) geldt voor alle
-  verkoopcijfers; voorraadcijfers gelden altijd voor vandaag. Maanden zonder
-  verkoop staan als nul in de grafiek.
-- **Grafieken** (Chart.js): één y-as per grafiek, kleuren uit CSS-variabelen
-  met aparte, gevalideerde stappen voor licht en donker, tooltips, en een
-  tabelweergave onder elke grafiek.
-### Listing-generator
+- **Margin is weighted:** total profit ÷ total revenue. An average of
+  individual margins would weigh a €1 card the same as a €50 one.
+- **Days to sale:** counted from "listed since", otherwise from the first
+  purchase.
+- **Period filter:** applies to all sales figures; inventory figures always
+  apply to today. Months without sales show as zero in the chart.
+- **Charts:** one y-axis per chart, colours with separate steps for light and
+  dark mode that were checked for colour blindness and contrast, and a table
+  below each chart.
 
-- **Patronen** met plaatshouders (`{jaar} {set} {speler} #{nummer} {variant} {conditie}`),
-  per gebruiker op te slaan als template. Onbekende plaatshouders worden bij
-  het opslaan geweigerd.
-- **Lege velden laten niets achter:** geen losse `#`, `()` of dubbele spaties,
-  en een regel als `Variant:` zonder waarde valt weg. Base-variant blijft leeg.
-- **Titel max. 80 tekens** (eBay). Langer wordt afgekapt op een woordgrens,
-  met een waarschuwing die noemt wat er wegvalt. Opslaan boven 80 kan niet.
-- **Tekens:** Unicode wordt genormaliseerd (NFC), stuurtekens en regeleinden
-  verdwijnen uit de titel; accenten blijven. Kaartgegevens worden niet
-  opnieuw als patroon gelezen (`{set}` als spelersnaam blijft letterlijk).
-  Alles is platte tekst en wordt bij het tonen ge-escaped.
-- **Controles:** titellengte, lege velden en de fotochecklist uit stap 5.
-- **Vraagprijs** toont direct de winst via de kostencalculator.
-- **Concept / actief:** "actief" zet de kaart op te koop met een
-  'te koop sinds'-datum; een latere verkoop gebruikt deze listing.
-### Oude voorraad
+### Listing generator
 
-- **Leeftijd** telt vanaf "te koop sinds"; voor kaarten die nog niet te koop
-  staan vanaf de eerste inkoop (zonder inkoop: vanaf invoer). Berekend in
-  `CardQuerySet.with_age_start()`, dus filteren en sorteren gebeurt in de
-  database.
-- **Drempels per gebruiker** (standaard 30 / 60 / 90 dagen). Precies op de
-  drempel telt al mee. Kleurcode én tekstlabel in het voorraadoverzicht.
-- **Voorstellen:** 30+ foto's of titel verbeteren; 60+ prijs verlagen met een
-  instelbaar percentage, met direct de nieuwe winst en marge via de
-  calculator en een waarschuwing bij verlies; 90+ bundelen met kaarten uit
-  dezelfde set, of afschrijven als die er niet zijn.
-- **Vastzetten** tot een datum: zo'n kaart geeft geen meldingen. Acties
-  (vastzetten, losmaken, prijs verlaagd) komen in `InventoryNote`.
-- **`aging.py` krijgt `today` mee**; de aandachtslijst kost een vast aantal
-  query's, onafhankelijk van het aantal kaarten.
+- **Patterns:** for example `{year} {set} {player} #{number} {variant} {condition}`.
+  Unknown placeholders are rejected when you save a template.
+- **Empty fields leave nothing behind:** no stray `#`, `()` or double spaces,
+  and a line `Variant:` without a value is dropped.
+- **Title max. 80 characters:** anything longer is cut at a word boundary,
+  with a warning that says what was dropped.
+- **Characters:** Unicode is normalised (NFC) and control characters are
+  removed. Card data is never re-read as a pattern.
 
-### Wekelijkse mail
+### Stale inventory
 
-`python manage.py send_stale_digest` stuurt elke gebruiker met een
-e-mailadres en de mail aan een overzicht, maar **niets als er niets te melden
-is**, en hooguit één keer per 7 dagen (`--force` negeert dat, `--dry-run`
-verstuurt niets, `--today JJJJ-MM-DD` voor tests). Het command staat los van
-de planner; plan het zelf in:
+- **Age:** counted from "listed since", otherwise from the first purchase
+  (without a purchase: from when the card was entered). Calculated in the
+  database with `with_age_start()`.
+- **Thresholds:** per user. **A card exactly on the threshold already counts.**
+- **Suggestions per level:**
+  - 30+ days: improve the photos or the title;
+  - 60+ days: lower the price, with the new profit and margin shown and a
+    warning if it becomes a loss;
+  - 90+ days: bundle with cards from the same set, or write it off.
+- **Pinning:** a card pinned until a date gives no alerts until then. Actions
+  are logged in `InventoryNote`.
+- **Weekly email:** `python manage.py send_stale_digest` sends **nothing
+  when there is nothing to report**, at most once every 7 days, and can be
+  turned off. Options: `--dry-run`, `--force`, `--today YYYY-MM-DD`. The
+  command is independent of the scheduler:
 
 ```bash
-# cron (Linux/macOS), elke maandag 08:00
-0 8 * * 1 cd /pad/naar/card-flip-desk && .venv/bin/python manage.py send_stale_digest
+# cron, every Monday at 08:00
+0 8 * * 1 cd /path/to/card-flip-desk && .venv/bin/python manage.py send_stale_digest
 ```
 
 ```bash
-schtasks /Create /SC WEEKLY /D MON /ST 08:00 /TN "Card Flip Desk digest" /TR "\"D:\GitHub\Card Flip Desk\.venv\Scripts\python.exe\" \"D:\GitHub\Card Flip Desk\manage.py\" send_stale_digest"
+schtasks /Create /SC WEEKLY /D MON /ST 08:00 /TN "Card Flip Desk digest" /TR "\"C:\path\.venv\Scripts\python.exe\" \"C:\path\manage.py\" send_stale_digest"
 ```
 
-Stel voor echte mail een SMTP-backend in `MAILERS` in en zet `SITE_URL` en
-`DEFAULT_FROM_EMAIL` via omgevingsvariabelen.
-### eBay-koppeling
+## Security
 
-**Wat eBay toestaat (onderzocht oktober 2026, developer.ebay.com):**
-
-- `GET /buy/browse/v1/item_summary/search` heeft alleen een
-  **applicatietoken** nodig (client credentials, scope
-  `https://api.ebay.com/oauth/api_scope`). Standaard 5.000 calls per dag;
-  tokens 1.000 per dag, 2 uur geldig. Zonder `buyingOptions`-filter komen
-  alleen Buy It Now-listings terug.
-- De Buy API's zijn deels *Limited Release*: in de **sandbox** mag iedereen
-  met een developeraccount, voor **productie** moet je toegang aanvragen
-  (eBay Partner Network) en goedkeuring is niet gegarandeerd.
-- **Verkochte items** (Marketplace Insights API) zijn alleen beperkt
-  toegankelijk. Daarom telt de eigen verkoophistorie in de app zwaarder en
-  komt er een CSV-import uit Seller Hub.
-- Listings plaatsen loopt via de Sell API's en een **gebruikerstoken**
-  (Authorization Code Flow met een RuName). Die flow is gebouwd en getest,
-  maar wordt nog nergens voor gebruikt: de app leest en rekent eerst.
-
-**Hoe de client werkt:** applicatietoken in de cache tot 5 minuten vóór
-verloop; bij een 401 één keer een nieuw token. Retries met exponentiële
-backoff bij netwerkfouten, 429 en 5xx (een `Retry-After` gaat voor, maximaal
-10 s). Een dagbudget (`EBAY_DAILY_CALL_BUDGET`, standaard 4.500) onder de
-eBay-limiet. GET-antwoorden komen in `CachedResponse` (standaard 6 uur
-vers, daarna opnieuw valideren met `If-None-Match`). Is eBay onbereikbaar,
-dan toont de app het laatst bewaarde antwoord met een melding, of anders
-alleen de eigen historie. De rest van de app werkt gewoon door.
-
-**Prijsadvies:** zoekterm uit de kaartgegevens (aan te passen), alleen
-listings in `EBAY_CURRENCY` en met de achternaam van de speler in de titel.
-Je ziet minimum, mediaan, maximum en het aantal. De richtprijs is de mediaan
-van je eigen verkopen (vanaf 2), anders de mediaan van de vraagprijzen, met
-de waarschuwing dat dat geen verkoopprijzen zijn. Elke ophaalactie geeft een
-`PriceSnapshot`. eBay-data wordt behandeld als onbetrouwbare invoer:
-bedragen als Decimal, links alleen naar https-eBay-domeinen, en alles
-ge-escaped.
-
-**Tokens in de database** staan versleuteld met Fernet
-(`TOKEN_ENCRYPTION_KEYS`, meerdere sleutels voor rotatie). Buiten DEBUG
-weigert de app te starten met tokens zonder sleutel. OAuth `state` wordt
-in de sessie bewaard en in constante tijd vergeleken.
-
-**Instellen** (omgevingsvariabelen, nooit in git):
-
-| Variabele | Voorbeeld |
+| Topic | Measure |
 |---|---|
-| `EBAY_ENVIRONMENT` | `sandbox` of `production` |
-| `EBAY_CLIENT_ID` / `EBAY_CLIENT_SECRET` | uit *Application Keys* |
-| `EBAY_RUNAME` | alleen voor de gebruikerskoppeling; accept-URL = `SITE_URL` + `/ebay/callback/` |
-| `EBAY_MARKETPLACE_ID` / `EBAY_CURRENCY` | `EBAY_NL` / `EUR` |
-| `EBAY_CATEGORY_IDS` | optioneel, om het zoeken te beperken |
-| `TOKEN_ENCRYPTION_KEYS` | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
-### REST API
+| Access | Every view and API queryset filters on the owner. Another user's object returns **404**, not 403, so you cannot probe which ids exist. In the API, `IsOwner` checks the object again, and references to another user's card or profile give the same error as an unknown id. Tested per endpoint. |
+| Uploads | The type is decided by the **contents** (Pillow), not the extension. Size and dimensions are checked **before** decoding (against decompression bombs). Everything is re-encoded, which drops EXIF (GPS), XMP and text chunks. File names are random `uuid4` names. |
+| Serving photos | Stored outside the public folder; `storage.url()` fails on purpose. Served through a view that checks ownership, with `Cache-Control: private`. Files are only deleted after a successful commit. |
+| Tokens | eBay tokens are stored encrypted (Fernet, key rotation with `MultiFernet`). Outside `DEBUG` the app refuses to store them without a key. The OAuth `state` is kept in the session, compared in constant time and used only once. |
+| External data | eBay titles are escaped, amounts are read as `Decimal`, and links are only allowed to https eBay domains (`evil-ebay.attacker.com` and `javascript:` are dropped). |
+| Other | CSRF on every form and HTMX request. Redirects back (`next`) only go to our own host. Token requests through the API are limited to 10 per minute. Secrets live in environment variables. |
 
-Basis-URL `/api/v1/`, interactieve documentatie op **`/api/v1/docs/`**
-(Swagger UI) en het schema op `/api/v1/schema/` (OpenAPI 3, drf-spectacular,
-valideert zonder waarschuwingen).
+## eBay integration
 
-| Endpoint | Methoden |
+**What eBay allows** (checked on developer.ebay.com, October 2026):
+
+- **Searching:** `GET /buy/browse/v1/item_summary/search` works with an
+  **application token** (client credentials, scope
+  `https://api.ebay.com/oauth/api_scope`). Limit: 5,000 calls per day; tokens
+  1,000 per day, valid for 2 hours. Without a filter, only Buy It Now
+  listings are returned.
+- **Production:** the Buy APIs are partly *Limited Release*. Anyone with a
+  developer account can use the **sandbox**; for **production** you apply for
+  access through the eBay Partner Network, and approval is not guaranteed.
+- **Sold items:** the Marketplace Insights API is only available on a
+  limited basis. That is why your own sales history weighs more.
+- **Placing listings:** goes through the Sell APIs with a **user token**
+  (Authorization Code Flow with a RuName). That flow is built and tested but
+  not used anywhere yet: the app reads and calculates first.
+
+**How the client works:**
+
+- **Application token:** stays in the cache until 5 minutes before it
+  expires. On a 401 the client requests a new token once.
+- **Retries:** on network errors, 429 and 5xx there are up to 3 retries with
+  exponential backoff and jitter. A `Retry-After` takes precedence, but the
+  client never waits longer than 10 s.
+- **Daily budget:** 4,500 calls by default, below the eBay limit.
+- **Cache:** GET responses stay fresh for 6 hours and are then revalidated
+  with `If-None-Match`.
+- **When eBay is down:** the app shows the last saved version with a notice,
+  or otherwise only your own history. The rest of the app keeps working.
+
+**Price advice:**
+
+- **Search query:** built from the card data and editable.
+- **Filters:** only listings in the configured currency and with the
+  player's surname in the title.
+- **Suggested price:** the median of your own sales (from 2 onwards),
+  otherwise the median of the asking prices, with a clear note that those
+  are not sale prices.
+- **Snapshots:** every fetch creates a `PriceSnapshot`.
+
+## REST API
+
+Base URL `/api/v1/`. Interactive docs live at **`/api/v1/docs/`**, the
+OpenAPI 3 schema at `/api/v1/schema/` (validates without warnings). You manage
+your token on the **API** page in the app.
+
+| Endpoint | Methods |
 |---|---|
-| `cards/` (+ `?q=&status=&set_name=&year=`) | CRUD, `POST cards/{id}/generate-listing/` |
+| `cards/` (`?q=&status=&set_name=&year=`) | CRUD, `POST cards/{id}/generate-listing/` |
 | `purchases/` | CRUD |
-| `photos/` | upload (multipart), lijst, `PATCH` label, `DELETE`, `POST {id}/set-main/`, `GET {id}/file/`, `GET {id}/thumbnail/` |
-| `listings/`, `listing-templates/` | CRUD (een verkochte listing is bevroren) |
-| `sales/` | lijst, detail, aanmaken (kosten via het kostenprofiel) |
+| `photos/` | upload (multipart), list, `PATCH` label, `DELETE`, `POST {id}/set-main/`, `GET {id}/file/`, `GET {id}/thumbnail/` |
+| `listings/`, `listing-templates/` | CRUD (a sold listing is frozen) |
+| `sales/` | list, detail, create (fees from the fee profile) |
 | `fee-profiles/` | CRUD |
 | `calculator/`, `calculator/reverse/` | `POST` |
-| `auth/token/` | `POST` gebruikersnaam + wachtwoord → token (max. 10 per minuut) |
+| `auth/token/` | `POST` username and password → token |
 
 ```bash
-curl -H "Authorization: Token <token>" http://localhost:8000/api/v1/cards/?status=for_sale
+curl -H "Authorization: Token <token>" "http://localhost:8000/api/v1/cards/?status=for_sale"
 ```
 
-- **Authenticatie:** `Authorization: Token …`. Het token maak, vernieuw of
-  trek je in op de pagina **API** in de app. Voor de docs in de browser werkt
-  ook de gewone sessie.
-- **Alleen eigen data**, op twee lagen: elke queryset is gefilterd op de
-  gebruiker (andermans object geeft 404), en een `IsOwner`-permissie
-  controleert het object nog eens. Verwijst invoer naar andermans kaart of
-  kostenprofiel, dan volgt dezelfde 400 als bij een id dat niet bestaat.
-- **Dezelfde services als de webapp:** foto-validatie en EXIF-verwijdering,
-  `register_sale`, de calculator en de listing-generator. De regels gelden
-  dus ook via de API.
-- **Bedragen zijn decimale strings** (`"5.24"`), geen floats.
-- **Throttling:** 2000 verzoeken per uur per gebruiker. Lijsten zijn
-  gepagineerd per 50 en draaien in een vast aantal query's.
+- **Amounts** are decimal strings (`"5.24"`), not floats.
+- **Lists** are paginated per 50, with a limit of 2,000 requests per hour per
+  user.
+
+## Configuration
+
+Everything comes from environment variables; the defaults are for local
+development.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `DJANGO_SECRET_KEY` | dev value | **Always set outside local development** |
+| `DJANGO_DEBUG` | `1` | `0` in production |
+| `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated |
+| `TOKEN_ENCRYPTION_KEYS` | derived in DEBUG | Fernet key(s); the first one encrypts. Create one: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
+| `PRIVATE_MEDIA_ROOT` | `private_media/` | Folder for photos (do not serve it publicly) |
+| `SITE_URL` | `http://localhost:8000` | For links in emails |
+| `DEFAULT_FROM_EMAIL` | `noreply@localhost` | Sender; configure an SMTP backend in `MAILERS` for real email |
+| `EBAY_ENVIRONMENT` | `sandbox` | `sandbox` or `production` |
+| `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET` | empty | From *Application Keys* on developer.ebay.com |
+| `EBAY_RUNAME` | empty | Only for connecting a user account; accept URL = `SITE_URL` + `/ebay/callback/` |
+| `EBAY_MARKETPLACE_ID`, `EBAY_CURRENCY` | `EBAY_NL`, `EUR` | Marketplace and currency for price advice |
+| `EBAY_CATEGORY_IDS` | empty | Optional, to narrow the search |
+| `EBAY_DAILY_CALL_BUDGET`, `EBAY_CACHE_SECONDS` | `4500`, `21600` | Budget and cache duration |
+
+## Tests
+
+```bash
+.venv\Scripts\python -m pytest
+```
+
+243 tests, without a network (eBay is mocked with respx), in about a minute
+and a half. A selection:
+
+- **Calculator:** known examples with exact `Decimal`s, rounding boundaries
+  (0.005 → 0.01, 0.025 → 0.03), zero and negative profit, and a reverse
+  calculation that works back to exactly the same profit.
+- **Photos:** valid and invalid files, a non-image with `.jpg`, too large,
+  thumbnail dimensions, EXIF gone (including GPS), at most one main photo,
+  files removed when a card is deleted, another user gets a 404.
+- **CSV import:** bad rows reported with the right line number, the rest goes
+  through.
+- **Title generator:** exactly 80 characters, 81 characters, missing fields,
+  special characters and Unicode normalisation.
+- **Stale inventory:** 29, 30 and 31 days, pinned cards, a loss on a price
+  suggestion, the dashboard total, and a mail command that sends nothing when
+  there is nothing to report.
+- **eBay client:** token caching and renewal, 429 with `Retry-After`, 5xx with
+  growing backoff, ETag/304, falling back to old data, 401 → new token, daily
+  budget, encryption and key rotation, OAuth `state`.
+- **Access:** for every endpoint (web and API), another user can neither see
+  nor change anything.
+- **Data migrations:** the switch to English placeholder names and category.
+
+## Known limitations and next steps
+
+- **Seller Hub import of sales** is still missing. It needs a real export to
+  base the column format on.
+- **Bundling** and **writing off** are suggested, but there is no action yet
+  that carries them out.
+- **Profit on a price drop and in the price advice** is calculated without
+  shipping.
+- **Real eBay prices** require production access to the Buy APIs (see
+  above); the sandbox contains test data.
+- **API tokens** (DRF authtoken) are stored unencrypted in the database.
+  Treat them like passwords; you can revoke them in the app.
+- **Optional extensions** from the plan: a grading ROI calculator, an export
+  for tax returns, Docker Compose and GitHub Actions.

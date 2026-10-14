@@ -1,9 +1,9 @@
-"""Authorization Code Flow voor gebruikerstokens.
+"""Authorization Code Flow for user tokens.
 
-Het prijsadvies heeft dit niet nodig (de Browse API werkt met een
-applicatietoken), maar Sell-API's, zoals listings plaatsen of eigen
-verkopen ophalen, wel. Tokens staan versleuteld in OAuthToken en worden vijf
-minuten vóór ze verlopen automatisch vernieuwd.
+Price advice does not need this (the Browse API works with an application
+token), but the Sell APIs, such as placing listings or fetching your own
+orders, do. Tokens are stored encrypted in OAuthToken and are renewed
+automatically five minutes before they expire.
 """
 
 import secrets
@@ -21,7 +21,7 @@ STATE_SESSION_KEY = "ebay_oauth_state"
 
 
 class NeedsReauthorization(Exception):
-    """Geen (geldige) refreshtoken: de gebruiker moet opnieuw koppelen."""
+    """No (valid) refresh token: the user has to connect again."""
 
 
 def new_state(session) -> str:
@@ -37,7 +37,7 @@ def pop_state_matches(session, state: str | None) -> bool:
 
 def authorize_url(client: EbayClient, state: str) -> str:
     if not (client.configured and settings.EBAY_RUNAME):
-        raise EbayNotConfigured("EBAY_CLIENT_ID, EBAY_CLIENT_SECRET en EBAY_RUNAME zijn nodig om te koppelen.")
+        raise EbayNotConfigured("EBAY_CLIENT_ID, EBAY_CLIENT_SECRET and EBAY_RUNAME are required to connect.")
     query = urlencode(
         {
             "client_id": client.client_id,
@@ -76,7 +76,7 @@ def exchange_code(user, code: str, client: EbayClient | None = None) -> OAuthTok
 
 
 def user_access_token(user, client: EbayClient | None = None) -> str:
-    """Geldige access token voor de gebruiker; vernieuwt hem zo nodig."""
+    """A valid access token for the user; renews it when needed."""
     client = client or EbayClient()
     with transaction.atomic():
         token = (
@@ -85,11 +85,11 @@ def user_access_token(user, client: EbayClient | None = None) -> str:
             .first()
         )
         if token is None:
-            raise NeedsReauthorization("Nog geen eBay-account gekoppeld.")
+            raise NeedsReauthorization("No eBay account connected yet.")
         if not token.expires_soon():
             return token.access_token
         if not token.refresh_token or token.refresh_expired():
-            raise NeedsReauthorization("De eBay-koppeling is verlopen; koppel opnieuw.")
+            raise NeedsReauthorization("The eBay connection has expired; please connect again.")
         payload = client.token_request(
             {
                 "grant_type": "refresh_token",

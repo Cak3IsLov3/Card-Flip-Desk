@@ -44,12 +44,12 @@ class PurchaseForm(forms.ModelForm):
 
 
 class CardFilterForm(forms.Form):
-    q = forms.CharField(required=False, label="Zoeken")
+    q = forms.CharField(required=False, label="Search")
     status = forms.ChoiceField(
-        required=False, choices=[("", "Alle statussen"), *CardStatus.choices]
+        required=False, choices=[("", "All statuses"), *CardStatus.choices]
     )
     set_name = forms.CharField(required=False, label="Set")
-    year = forms.IntegerField(required=False, label="Jaar")
+    year = forms.IntegerField(required=False, label="Year")
 
     def apply(self, qs):
         if not self.is_valid():
@@ -85,16 +85,16 @@ class MultipleFileField(forms.FileField):
 
 
 class PhotoUploadForm(forms.Form):
-    """Alleen de vorm wordt hier gecontroleerd; type, grootte en afmetingen
-    controleert photos.process_image op basis van de inhoud."""
+    """Only the shape of the input is checked here; type, size and dimensions
+    are checked by photos.process_image based on the file contents."""
 
-    files = MultipleFileField(label="Foto's")
-    label = forms.ChoiceField(label="Soort", choices=PhotoLabel.choices, initial=PhotoLabel.FRONT)
+    files = MultipleFileField(label="Photos")
+    label = forms.ChoiceField(label="Type", choices=PhotoLabel.choices, initial=PhotoLabel.FRONT)
 
 
 class PhotoReplaceForm(forms.Form):
     file = forms.FileField(
-        label="Nieuwe foto", widget=forms.ClearableFileInput(attrs={"accept": IMAGE_ACCEPT})
+        label="New photo", widget=forms.ClearableFileInput(attrs={"accept": IMAGE_ACCEPT})
     )
 
 
@@ -103,7 +103,7 @@ class PhotoLabelForm(forms.Form):
 
 
 class StaleThresholdForm(forms.ModelForm):
-    email = forms.EmailField(label="E-mailadres voor het overzicht", required=False)
+    email = forms.EmailField(label="Email address for the digest", required=False)
 
     class Meta:
         model = StaleThreshold
@@ -125,17 +125,17 @@ class StaleThresholdForm(forms.ModelForm):
         cleaned = super().clean()
         w, a, c = (cleaned.get(k) for k in ("warning_days", "action_days", "critical_days"))
         if None not in (w, a, c) and not (0 < w < a < c):
-            raise forms.ValidationError("De drempels moeten oplopen: waarschuwing < actie < kritiek.")
+            raise forms.ValidationError("Thresholds must increase: warning < action < critical.")
         if cleaned.get("weekly_email") and not cleaned.get("email"):
-            self.add_error("email", "Vul een e-mailadres in om het wekelijkse overzicht te ontvangen.")
+            self.add_error("email", "Enter an email address to receive the weekly digest.")
         pct = cleaned.get("price_drop_percentage")
         if pct is not None and not (0 < pct < 100):
-            self.add_error("price_drop_percentage", "Kies een percentage tussen 0 en 100.")
+            self.add_error("price_drop_percentage", "Choose a percentage between 0 and 100.")
         return cleaned
 
 
 class PinForm(forms.Form):
-    held_until = forms.DateField(label="Vastzetten tot", widget=DateInput)
+    held_until = forms.DateField(label="Pin until", widget=DateInput)
 
     def __init__(self, *args, today=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -144,34 +144,34 @@ class PinForm(forms.Form):
     def clean_held_until(self):
         value = self.cleaned_data["held_until"]
         if value <= self.today:
-            raise forms.ValidationError("Kies een datum na vandaag.")
+            raise forms.ValidationError("Choose a date after today.")
         return value
 
 
 class PriceDropForm(forms.Form):
     percentage = forms.DecimalField(
-        label="Verlagen met %", min_value=Decimal("0.1"), max_value=Decimal("90"), decimal_places=1
+        label="Lower by %", min_value=Decimal("0.1"), max_value=Decimal("90"), decimal_places=1
     )
 
 
 class CsvUploadForm(forms.Form):
-    file = forms.FileField(label="CSV-bestand")
+    file = forms.FileField(label="CSV file")
 
     MAX_BYTES = 2 * 1024 * 1024
 
     def clean_file(self):
         f = self.cleaned_data["file"]
         if f.size > self.MAX_BYTES:
-            raise forms.ValidationError("Bestand is groter dan 2 MB.")
+            raise forms.ValidationError("File is larger than 2 MB.")
         return f
 
 
 class CsvMappingForm(forms.Form):
-    """Eén keuzeveld per importveld; de keuzes zijn de CSV-kolommen."""
+    """One choice field per import field; the choices are the CSV columns."""
 
     def __init__(self, headers, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        choices = [("", "— niet importeren —")] + [(h, h) for h in headers]
+        choices = [("", "— do not import —")] + [(h, h) for h in headers]
         for name, label in IMPORT_FIELDS.items():
             self.fields[name] = forms.ChoiceField(
                 label=label + (" *" if name in REQUIRED_FIELDS else ""),

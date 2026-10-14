@@ -7,4 +7,4 @@
       <td class="num {% if s.profit < 0 %}bad{% else %}good{% endif %}">{{ s.profit|euro }}</td></tr>
   {% endfor %}</tbody>
 </table>
-{% else %}<p class="muted">Nog geen verkopen in deze periode.</p>{% endif %}
+{% else %}<p class="muted">No sales in this period yet.</p>{% endif %}

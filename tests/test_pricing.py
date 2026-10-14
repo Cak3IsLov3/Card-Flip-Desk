@@ -28,9 +28,9 @@ SEARCH_RESPONSE = {
         item("Haaland Topps Chrome 2023 RC", "5.00"),
         item("ERLING HAALAND chrome #15 refractor", "14.99"),
         item("Haaland 2023 USD listing", "9.00", currency="USD"),
-        item("Mbappé Topps Chrome 2023", "3.00"),  # andere speler
+        item("Mbappé Topps Chrome 2023", "3.00"),  # another player
         item("Haaland bad price", "abc"),
-        item("Haaland gratis?", "0.00"),
+        item("Haaland free?", "0.00"),
     ],
 }
 
@@ -64,7 +64,7 @@ def test_parse_items_filters_and_stats(card):
 
 def test_median_of_even_count():
     assert PriceStats.of([D("1.00"), D("2.00"), D("4.00"), D("10.00")]).median == D("3.00")
-    assert PriceStats.of([D("1.00"), D("2.25")]).median == D("1.63")  # 1,625 → half naar boven
+    assert PriceStats.of([D("1.00"), D("2.25")]).median == D("1.63")  # 1.625 → half up
     assert PriceStats.of([]) is None
 
 
@@ -87,10 +87,10 @@ def test_only_safe_ebay_links(card, url, kept):
 
 def test_advice_from_active_listings(card, fee_profile, ebay_ok):
     advice = build_advice(card, fetch=True, today=TODAY)
-    assert advice.summary == ["3 actieve listings, mediaan € 8,50 (laagste € 5,00, hoogste € 14,99)."]
+    assert advice.summary == ["3 active listings, median €8.50 (lowest €5.00, highest €14.99)."]
     assert advice.suggested_price == D("8.50")
-    assert "geen verkoopprijzen" in advice.basis
-    assert advice.preview.profit == D("4.02")  # 8,50 - (1,13 + 0,35) - 3,00 inkoop
+    assert "not sale prices" in advice.basis
+    assert advice.preview.profit == D("4.02")  # 8.50 - (1.13 + 0.35) - 3.00 cost
     snap = PriceSnapshot.objects.get()
     assert (snap.source, snap.price, snap.listing_count) == (PriceSource.EBAY_ACTIVE, D("8.50"), 3)
     assert ebay_ok.calls[0].request.url.params["q"] == "2023 Topps Chrome Erling Haaland 15"
@@ -101,12 +101,12 @@ def test_own_history_wins_with_two_or_more_sales(user, card, fee_profile, ebay_o
         register_sale(make_card(user, player="Erling Haaland", set_name="topps chrome", cost="1"),
                       sale_price=D(price), sold_at=date(2026, 9, 1))
     register_sale(make_card(user, player="Erling Haaland", set_name="Prizm", cost="1"),
-                  sale_price=D("99.00"), sold_at=date(2026, 9, 1))  # andere set
+                  sale_price=D("99.00"), sold_at=date(2026, 9, 1))  # another set
     advice = build_advice(card, fetch=True, today=TODAY)
     assert advice.own.stats.count == 3
     assert advice.suggested_price == D("7.00")
-    assert advice.basis == "mediaan van je eigen verkopen"
-    assert "Zelf 3× verkocht" in advice.summary[1]
+    assert advice.basis == "median of your own sales"
+    assert "You sold 3 yourself" in advice.summary[1]
     assert PriceSnapshot.objects.filter(source=PriceSource.OWN_HISTORY).count() == 1
 
 
@@ -116,7 +116,7 @@ def test_without_ebay_keys_uses_own_history_only(user, card, fee_profile, make_c
     advice = build_advice(card, fetch=True, today=TODAY)
     assert advice.active.not_configured
     assert advice.suggested_price == D("6.50")
-    assert advice.basis == "je enige eerdere verkoop"
+    assert advice.basis == "your only previous sale"
     assert not respx_mock.calls
 
 
@@ -124,7 +124,7 @@ def test_ebay_down_degrades_gracefully(card, ebay_keys, respx_mock):
     respx_mock.post(TOKEN_URL).mock(return_value=httpx.Response(200, json={"access_token": "t", "expires_in": 7200}))
     respx_mock.get(SEARCH_URL).mock(return_value=httpx.Response(503))
     advice = build_advice(card, fetch=True, today=TODAY, client=EbayClient(sleep=lambda s: None))
-    assert "niet bereikbaar" in advice.active.error
+    assert "unreachable" in advice.active.error
     assert advice.suggested_price is None
     assert not PriceSnapshot.objects.exists()
 
@@ -133,7 +133,7 @@ def test_view_get_does_not_call_ebay(user, card, client_for, ebay_ok):
     resp = client_for(user).get(reverse("pricing:card_advice", args=[card.pk]))
     assert resp.status_code == 200
     assert ebay_ok.call_count == 0
-    assert b"vraagprijzen" in resp.content
+    assert b"asking prices" in resp.content
 
 
 def test_view_post_fetches_with_custom_query_and_escapes(user, card, client_for, ebay_keys, respx_mock):

@@ -1,9 +1,9 @@
-"""Leeftijd van voorraad en voorgestelde acties.
+"""Inventory age and suggested actions.
 
-Alle functies krijgen `today` mee; zo zijn de grenzen (precies op de
-drempel, een dag ervoor, een dag erna) te testen zonder de klok te
-manipuleren. Een kaart staat **op** de drempel als hij precies zoveel dagen
-oud is, en telt dan al mee.
+Every function takes `today` as an argument, so the boundaries (exactly on
+the threshold, a day before, a day after) can be tested without touching the
+clock. A card is **on** the threshold when it is exactly that many days old,
+and it already counts at that point.
 """
 
 from collections import Counter
@@ -18,12 +18,12 @@ from finance.calculator import ZERO, CostInput, CostResult, calculate, money
 from .models import Card, CardStatus, StaleThreshold
 
 WARNING, ACTION, CRITICAL = "warning", "action", "critical"
-LEVEL_LABELS = {WARNING: "Waarschuwing", ACTION: "Actie", CRITICAL: "Kritiek"}
+LEVEL_LABELS = {WARNING: "Warning", ACTION: "Action", CRITICAL: "Critical"}
 
 
 def _pct(value: Decimal) -> str:
-    """10.0 -> '10%', 12.5 -> '12,5%'."""
-    return f"{value.normalize():f}".replace(".", ",") + "%"
+    """10.0 -> '10%', 12.5 -> '12.5%'."""
+    return f"{value.normalize():f}%"
 
 
 def level_for(age_days: int | None, t: StaleThreshold) -> str | None:
@@ -63,7 +63,7 @@ class StaleItem:
     cost: Decimal
     advice: str
     price: PriceSuggestion | None = None
-    bundle_with: int = 0  # aantal andere onverkochte kaarten uit dezelfde set
+    bundle_with: int = 0  # number of other unsold cards from the same set
 
     @property
     def level_label(self) -> str:
@@ -82,7 +82,7 @@ def suggest_price(asking_price, cost, percentage, fees) -> PriceSuggestion | Non
 
 
 def stale_queryset(user, today: date, thresholds: StaleThreshold):
-    """Onverkochte, niet-vastgezette kaarten die minstens de eerste drempel halen."""
+    """Unsold, unpinned cards that have reached at least the first threshold."""
     from sales.models import Listing, ListingStatus
 
     cutoff = today - timedelta(days=thresholds.warning_days)
@@ -102,6 +102,7 @@ def stale_queryset(user, today: date, thresholds: StaleThreshold):
 
 
 def stale_items(user, today: date, thresholds: StaleThreshold | None = None) -> list[StaleItem]:
+    from finance.models import DEFAULT_CATEGORY
     from sales.services import NoFeeProfile, fees_for
 
     thresholds = thresholds or StaleThreshold.for_user(user)
@@ -110,7 +111,7 @@ def stale_items(user, today: date, thresholds: StaleThreshold | None = None) -> 
         return []
 
     try:
-        fees = fees_for(user, "Sportkaarten", today)
+        fees = fees_for(user, DEFAULT_CATEGORY, today)
     except NoFeeProfile:
         fees = None
 
@@ -127,7 +128,7 @@ def stale_items(user, today: date, thresholds: StaleThreshold | None = None) -> 
         listing = card.open_listings[0] if card.open_listings else None
         item = StaleItem(card=card, age_days=age, level=level, cost=card.cost_total, advice="")
         if level == WARNING:
-            item.advice = "Verbeter de foto's of de titel."
+            item.advice = "Improve the photos or the title."
         elif level == ACTION:
             item.price = suggest_price(
                 listing.asking_price if listing else None,
@@ -136,16 +137,17 @@ def stale_items(user, today: date, thresholds: StaleThreshold | None = None) -> 
                 fees,
             )
             item.advice = (
-                f"Verlaag de prijs met {_pct(thresholds.price_drop_percentage)}."
+                f"Lower the price by {_pct(thresholds.price_drop_percentage)}."
                 if item.price
-                else "Zet de kaart te koop met een vraagprijs."
+                else "List the card for sale with an asking price."
             )
         else:
             item.bundle_with = unsold_per_set[(card.set_name, card.year)] - 1
+            others = "card" if item.bundle_with == 1 else "cards"
             item.advice = (
-                f"Bundel met {item.bundle_with} andere kaart(en) uit {card.set_name} {card.year}."
+                f"Bundle with {item.bundle_with} other {others} from {card.set_name} {card.year}."
                 if item.bundle_with
-                else "Afschrijven of als koopje aanbieden."
+                else "Write it off or offer it as a bargain."
             )
         items.append(item)
     return items

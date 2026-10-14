@@ -1,28 +1,28 @@
 {% load money %}
 <section class="panel">
-  <h2>Uitkomst</h2>
+  <h2>Result</h2>
   {% if error %}
     <p class="error">{{ error }}</p>
   {% elif result %}
     {% if required_price is not None %}
-      <p>Benodigde vraagprijs: <strong>{{ required_price|euro }}</strong></p>
+      <p>Required asking price: <strong>{{ required_price|euro }}</strong></p>
     {% endif %}
     <dl class="kv">
-      <dt>Bruto (prijs + verzending)</dt><dd>{{ result.gross|euro }}</dd>
-      <dt>Commissie</dt><dd>-{{ result.commission|euro }}</dd>
-      <dt>Betaalkosten</dt><dd>-{{ result.payment_fee|euro }}</dd>
-      <dt>Verzendkosten</dt><dd>-{{ result.shipping_cost|euro }}</dd>
-      <dt>Verpakking</dt><dd>-{{ result.packaging_cost|euro }}</dd>
-      <dt>Netto-opbrengst</dt><dd>{{ result.net_proceeds|euro }}</dd>
-      <dt>Inkoop</dt><dd>-{{ result.purchase_cost|euro }}</dd>
-      <dt><strong>Winst</strong></dt><dd><strong class="{% if result.is_loss %}bad{% else %}good{% endif %}">{{ result.profit|euro }}</strong></dd>
-      <dt>Marge</dt><dd>{{ result.margin|pct }}</dd>
+      <dt>Gross (price + shipping)</dt><dd>{{ result.gross|euro }}</dd>
+      <dt>Commission</dt><dd>-{{ result.commission|euro }}</dd>
+      <dt>Payment fee</dt><dd>-{{ result.payment_fee|euro }}</dd>
+      <dt>Shipping cost</dt><dd>-{{ result.shipping_cost|euro }}</dd>
+      <dt>Packaging</dt><dd>-{{ result.packaging_cost|euro }}</dd>
+      <dt>Net proceeds</dt><dd>{{ result.net_proceeds|euro }}</dd>
+      <dt>Purchase cost</dt><dd>-{{ result.purchase_cost|euro }}</dd>
+      <dt><strong>Profit</strong></dt><dd><strong class="{% if result.is_loss %}bad{% else %}good{% endif %}">{{ result.profit|euro }}</strong></dd>
+      <dt>Margin</dt><dd>{{ result.margin|pct }}</dd>
     </dl>
-    {% if result.is_loss %}<p class="bad">Let op: met deze prijs maak je verlies.</p>{% endif %}
-    <p class="muted">Kosten per post afgerond op centen (half naar boven). Marge = winst / bruto.</p>
+    {% if result.is_loss %}<p class="bad">Note: you make a loss at this price.</p>{% endif %}
+    <p class="muted">Each cost item is rounded to cents (half up). Margin = profit / gross.</p>
   {% elif form.is_bound and form.errors %}
     {% for field, errs in form.errors.items %}<p class="error">{{ errs|join:" " }}</p>{% endfor %}
   {% else %}
-    <p class="muted">Vul de velden in om te rekenen.</p>
+    <p class="muted">Fill in the fields to calculate.</p>
   {% endif %}
 </section>

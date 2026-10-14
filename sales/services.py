@@ -5,7 +5,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from finance.calculator import ZERO, CostInput, Fees, calculate, money
-from finance.models import FeeProfile
+from finance.models import DEFAULT_CATEGORY, FeeProfile
 from inventory.models import Card, CardStatus
 
 from .models import Listing, ListingStatus, Sale
@@ -19,7 +19,7 @@ def fees_for(user, category: str, on_date: date) -> Fees:
     profile = FeeProfile.objects.current_for(user, category, on_date)
     if profile is None:
         raise NoFeeProfile(
-            f"Geen kostenprofiel voor categorie '{category}' op {on_date:%d-%m-%Y}."
+            f"No fee profile for category '{category}' on {on_date:%d-%m-%Y}."
         )
     return profile.to_fees()
 
@@ -34,13 +34,13 @@ def register_sale(
     shipping_cost: Decimal = ZERO,
     packaging_cost: Decimal = ZERO,
     buyer_country: str = "",
-    category: str = "Sportkaarten",
+    category: str = DEFAULT_CATEGORY,
     title: str = "",
 ) -> Sale:
-    """Legt een verkoop vast en berekent de kosten met het geldende profiel.
+    """Record a sale and calculate the fees with the profile in force.
 
-    Gebruikt de actieve listing van de kaart; bestaat die niet, dan wordt
-    er een aangemaakt (handmatige verkoop buiten de generator om).
+    Uses the card's open listing; if there is none, one is created (a manual
+    sale that did not go through the listing generator).
     """
     fees = fees_for(card.owner, category, sold_at)
     result = calculate(
@@ -86,7 +86,7 @@ def register_sale(
 
 
 def card_profit(card: Card) -> Decimal | None:
-    """Winst op een kaart: netto-opbrengst van de verkoop min alle inkoop."""
+    """Profit on a card: net proceeds of the sale minus all purchase costs."""
     sale = Sale.objects.filter(listing__card=card).first()
     if sale is None:
         return None

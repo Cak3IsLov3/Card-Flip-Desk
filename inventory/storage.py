@@ -5,11 +5,11 @@ from django.core.files.storage import FileSystemStorage, storages
 
 
 class PrivatePhotoStorage(FileSystemStorage):
-    """Lokale opslag zonder publieke URL.
+    """Local storage without a public URL.
 
-    `url()` faalt bewust: bestanden gaan alleen via `inventory:photo_file`,
-    die de eigenaar controleert. De locatie wordt bij elk gebruik uit de
-    settings gelezen, zodat tests een tijdelijke map kunnen instellen.
+    `url()` fails on purpose: files are only served through
+    `inventory:photo_file`, which checks ownership. The location is read
+    from settings on every use, so tests can point it at a temporary folder.
     """
 
     @property
@@ -25,7 +25,7 @@ class PrivatePhotoStorage(FileSystemStorage):
         return None
 
     def url(self, name):
-        raise ValueError("Foto's hebben geen publieke URL; gebruik de view photo_file.")
+        raise ValueError("Photos have no public URL; use the photo_file view.")
 
 
 def photo_storage():

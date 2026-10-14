@@ -4,7 +4,7 @@ from django.contrib.auth import login
 from django.contrib.auth.forms import UserCreationForm
 from django.shortcuts import redirect, render
 
-from finance.models import FeeProfile
+from finance.models import DEFAULT_CATEGORY, FeeProfile
 
 
 def signup(request):
@@ -13,10 +13,10 @@ def signup(request):
     form = UserCreationForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         user = form.save()
-        # Startprofiel zodat de calculator meteen werkt; tarieven zijn aanpasbaar.
+        # Starter profile so the calculator works right away; rates are editable.
         FeeProfile.objects.create(
             user=user,
-            category="Sportkaarten",
+            category=DEFAULT_CATEGORY,
             commission_percentage=Decimal("13.25"),
             fixed_fee=Decimal("0.35"),
             payment_percentage=Decimal("0.00"),

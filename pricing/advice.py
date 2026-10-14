@@ -1,9 +1,9 @@
-"""Prijsadvies: actieve eBay-listings naast je eigen verkoophistorie.
+"""Price advice: active eBay listings next to your own sales history.
 
-Actieve listings zijn **vraagprijzen**, geen verkoopprijzen: wat te duur
-staat, blijft staan. Daarom weegt de eigen historie zwaarder zodra er
-genoeg is. Gegevens van eBay zijn externe invoer: bedragen worden als
-Decimal gelezen en ongeldige regels overgeslagen, links alleen naar eBay.
+Active listings are **asking prices**, not sale prices: whatever is priced
+too high just sits there. That is why your own history weighs more as soon
+as there is enough of it. Data from eBay is external input: amounts are read
+as Decimal, invalid rows are skipped, and links only go to eBay.
 """
 
 import statistics
@@ -17,6 +17,7 @@ from django.conf import settings
 
 from ebay.client import EbayClient, EbayError, EbayNotConfigured, EbayRateLimited, EbayUnavailable
 from finance.calculator import CENT, CostInput, calculate
+from finance.models import DEFAULT_CATEGORY
 from inventory.models import Card, Variant
 from sales.models import Sale
 from sales.services import NoFeeProfile, fees_for
@@ -80,7 +81,7 @@ class Advice:
     summary: list[str]
     suggested_price: Decimal | None
     basis: str
-    preview: object = None  # CostResult bij de richtprijs
+    preview: object = None  # CostResult at the suggested price
 
 
 def search_query(card: Card) -> str:
@@ -91,7 +92,7 @@ def search_query(card: Card) -> str:
 
 
 def _fold(text: str) -> str:
-    """Kleine letters zonder accenten, voor een ruwe titelvergelijking."""
+    """Lower case without accents, for a rough title comparison."""
     decomposed = unicodedata.normalize("NFKD", text or "")
     return "".join(c for c in decomposed if not unicodedata.combining(c)).casefold()
 
@@ -111,7 +112,7 @@ def parse_items(data: dict, card: Card) -> ActiveListings:
         if value <= 0:
             continue
         title = str(raw.get("title") or "")[:200]
-        # Zoekresultaten bevatten ruis (lots, andere spelers); de achternaam moet in de titel staan.
+        # Search results are noisy (lots, other players); the surname must be in the title.
         if surname and surname not in _fold(title):
             result.excluded_irrelevant += 1
             continue
@@ -134,7 +135,7 @@ IMAGE_DOMAINS = ("ebayimg.com",)
 
 
 def _safe_url(url, domains) -> str:
-    """Alleen https-links naar (subdomeinen van) de opgegeven domeinen."""
+    """Only https links to (subdomains of) the given domains."""
     if not isinstance(url, str):
         return ""
     parsed = urlparse(url)
@@ -147,17 +148,17 @@ def _safe_url(url, domains) -> str:
 def fetch_active(card: Card, query: str, client: EbayClient | None = None) -> ActiveListings:
     client = client or EbayClient()
     if not client.configured:
-        return ActiveListings(not_configured=True, error="eBay is niet gekoppeld (geen applicatiesleutels).")
+        return ActiveListings(not_configured=True, error="eBay is not configured (no application keys).")
     try:
         result = client.search_items(query, limit=100, category_ids=settings.EBAY_CATEGORY_IDS)
     except EbayNotConfigured as exc:
         return ActiveListings(not_configured=True, error=str(exc))
     except EbayRateLimited as exc:
-        return ActiveListings(error=f"{exc} Gebruik voorlopig je eigen historie.")
+        return ActiveListings(error=f"{exc} Use your own history for now.")
     except EbayUnavailable as exc:
-        return ActiveListings(error=f"eBay is nu niet bereikbaar ({exc}). Gebruik je eigen historie of vul handmatig een prijs in.")
+        return ActiveListings(error=f"eBay is unreachable right now ({exc}). Use your own history or enter a price manually.")
     except EbayError as exc:
-        return ActiveListings(error=f"eBay gaf een fout: {exc}")
+        return ActiveListings(error=f"eBay returned an error: {exc}")
     active = parse_items(result.data, card)
     active.fetched_at, active.from_cache, active.stale = result.fetched_at, result.from_cache, result.stale
     return active
@@ -174,8 +175,8 @@ def own_history(card: Card) -> OwnHistory:
 
 
 def euro(value: Decimal) -> str:
-    whole, cents = f"{value:.2f}".split(".")
-    return f"€ {int(whole):,}".replace(",", ".") + f",{cents}"
+    sign = "-" if value < 0 else ""
+    return f"{sign}€{abs(value):,.2f}"
 
 
 def build_advice(card: Card, *, query: str | None = None, fetch: bool, today, client=None) -> Advice:
@@ -187,28 +188,28 @@ def build_advice(card: Card, *, query: str | None = None, fetch: bool, today, cl
     if active and active.stats:
         s = active.stats
         summary.append(
-            f"{s.count} actieve listing{'s' if s.count != 1 else ''}, mediaan {euro(s.median)} "
-            f"(laagste {euro(s.minimum)}, hoogste {euro(s.maximum)})."
+            f"{s.count} active listing{'s' if s.count != 1 else ''}, median {euro(s.median)} "
+            f"(lowest {euro(s.minimum)}, highest {euro(s.maximum)})."
         )
     elif active and not active.error:
-        summary.append("Geen vergelijkbare actieve listings gevonden.")
+        summary.append("No comparable active listings found.")
     if own.stats:
         summary.append(
-            f"Zelf {own.stats.count}× verkocht (zelfde speler en set), mediaan {euro(own.stats.median)}."
+            f"You sold {own.stats.count} yourself (same player and set), median {euro(own.stats.median)}."
         )
 
     suggested, basis = None, ""
     if own.stats and own.stats.count >= MIN_OWN_SALES_FOR_ADVICE:
-        suggested, basis = own.stats.median, "mediaan van je eigen verkopen"
+        suggested, basis = own.stats.median, "median of your own sales"
     elif active and active.stats:
-        suggested, basis = active.stats.median, "mediaan van de actieve vraagprijzen (geen verkoopprijzen!)"
+        suggested, basis = active.stats.median, "median of the active asking prices (not sale prices!)"
     elif own.stats:
-        suggested, basis = own.stats.median, "je enige eerdere verkoop"
+        suggested, basis = own.stats.median, "your only previous sale"
 
     preview = None
     if suggested is not None:
         try:
-            fees = fees_for(card.owner, "Sportkaarten", today)
+            fees = fees_for(card.owner, DEFAULT_CATEGORY, today)
             preview = calculate(CostInput(sale_price=suggested, purchase_cost=card.total_cost), fees)
         except NoFeeProfile:
             pass

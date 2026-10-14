@@ -1,13 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Inloggen – Card Flip Desk{% endblock %}
+{% block title %}Log in – Card Flip Desk{% endblock %}
 {% block content %}
 <section class="narrow">
-  <h1>Inloggen</h1>
+  <h1>Log in</h1>
   <form method="post">{% csrf_token %}
     {% include "_form_fields.html" %}
     <input type="hidden" name="next" value="{{ next }}">
-    <button>Inloggen</button>
+    <button>Log in</button>
   </form>
-  <p>Nog geen account? <a href="{% url 'signup' %}">Registreren</a></p>
+  <p>No account yet? <a href="{% url 'signup' %}">Sign up</a></p>
 </section>
 {% endblock %}

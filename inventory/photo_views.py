@@ -52,7 +52,7 @@ def photo_upload(request, card_pk):
         added = photo_service.add_photos(card, form.cleaned_data["files"], form.cleaned_data["label"])
     except photo_service.PhotoError as exc:
         return _respond(request, card, exc.messages)
-    return _respond(request, card, success=f"{len(added)} foto('s) toegevoegd.")
+    return _respond(request, card, success=f"{len(added)} photo{'' if len(added) == 1 else 's'} added.")
 
 
 @login_required
@@ -65,7 +65,7 @@ def photo_file(request, pk, kind):
     except FileNotFoundError:
         raise Http404 from None
     response = FileResponse(handle, content_type=photo.content_type)
-    # Privé: geen gedeelde caches (proxy/CDN) laten bewaren.
+    # Private: do not let shared caches (proxy/CDN) store it.
     response["Cache-Control"] = "private, max-age=3600"
     return response
 
@@ -75,7 +75,7 @@ def photo_file(request, pk, kind):
 def photo_set_main(request, pk):
     photo = _own_photo(request, pk)
     photo_service.set_main(photo)
-    return _respond(request, photo.card, success="Hoofdfoto ingesteld.")
+    return _respond(request, photo.card, success="Main photo set.")
 
 
 @login_required
@@ -94,8 +94,8 @@ def photo_label(request, pk):
     if form.is_valid():
         photo.label = form.cleaned_data["label"]
         photo.save(update_fields=["label"])
-        return _respond(request, photo.card, success="Soort bijgewerkt.")
-    return _respond(request, photo.card, ["Onbekende soort foto."])
+        return _respond(request, photo.card, success="Type updated.")
+    return _respond(request, photo.card, ["Unknown photo type."])
 
 
 @login_required
@@ -104,12 +104,12 @@ def photo_replace(request, pk):
     photo = _own_photo(request, pk)
     form = PhotoReplaceForm(request.POST, request.FILES)
     if not form.is_valid():
-        return _respond(request, photo.card, ["Kies een bestand om de foto te vervangen."])
+        return _respond(request, photo.card, ["Choose a file to replace the photo."])
     try:
         photo_service.replace_photo(photo, form.cleaned_data["file"])
     except photo_service.PhotoError as exc:
         return _respond(request, photo.card, exc.messages)
-    return _respond(request, photo.card, success="Foto vervangen.")
+    return _respond(request, photo.card, success="Photo replaced.")
 
 
 @login_required
@@ -118,4 +118,4 @@ def photo_delete(request, pk):
     photo = _own_photo(request, pk)
     card = photo.card
     photo_service.delete_photo(photo)
-    return _respond(request, card, success="Foto verwijderd.")
+    return _respond(request, card, success="Photo deleted.")

@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Kaart verwijderen – Card Flip Desk{% endblock %}
+{% block title %}Delete card – Card Flip Desk{% endblock %}
 {% block content %}
-<h1>Kaart verwijderen</h1>
-<p>Weet je zeker dat je <strong>{{ card }}</strong> wilt verwijderen? Inkopen, listings en verkopen gaan mee.</p>
+<h1>Delete card</h1>
+<p>Are you sure you want to delete <strong>{{ card }}</strong>? Its purchases, listings and sales are deleted too.</p>
 <form method="post">{% csrf_token %}
-  <button class="danger">Verwijderen</button>
-  <a href="{% url 'inventory:card_detail' card.pk %}">Annuleren</a>
+  <button class="danger">Delete</button>
+  <a href="{% url 'inventory:card_detail' card.pk %}">Cancel</a>
 </form>
 {% endblock %}

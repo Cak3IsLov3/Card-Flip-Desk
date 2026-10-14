@@ -1,5 +1,5 @@
 {% load static %}<!doctype html>
-<html lang="nl">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -14,15 +14,15 @@
     {% if user.is_authenticated %}
     <nav>
       <a href="{% url 'dashboard' %}">Dashboard</a>
-      <a href="{% url 'inventory:card_list' %}">Voorraad</a>
-      <a href="{% url 'inventory:attention' %}">Aandacht</a>
-      <a href="{% url 'sales:sale_list' %}">Verkopen</a>
+      <a href="{% url 'inventory:card_list' %}">Inventory</a>
+      <a href="{% url 'inventory:attention' %}">Attention</a>
+      <a href="{% url 'sales:sale_list' %}">Sales</a>
       <a href="{% url 'finance:calculator' %}">Calculator</a>
-      <a href="{% url 'finance:fee_profiles' %}">Kostenprofielen</a>
+      <a href="{% url 'finance:fee_profiles' %}">Fee profiles</a>
       <a href="{% url 'ebay:connection' %}">eBay</a>
       <a href="{% url 'api_token' %}">API</a>
       <form method="post" action="{% url 'logout' %}" class="inline">{% csrf_token %}
-        <button class="link">Uitloggen ({{ user.username }})</button>
+        <button class="link">Log out ({{ user.username }})</button>
       </form>
     </nav>
     {% endif %}

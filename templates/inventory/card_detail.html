@@ -4,41 +4,41 @@
 {% block content %}
 <h1>{{ card }}</h1>
 <div class="actions">
-  <a class="button secondary" href="{% url 'inventory:card_update' card.pk %}">Bewerken</a>
+  <a class="button secondary" href="{% url 'inventory:card_update' card.pk %}">Edit</a>
   <a class="button secondary" href="{% url 'finance:calculator' %}?card={{ card.pk }}">Calculator</a>
-  <a class="button secondary" href="{% url 'pricing:card_advice' card.pk %}">Prijsadvies</a>
-  {% if card.status != "sold" %}<a class="button secondary" href="{% url 'sales:listing_generator' card.pk %}">Listing maken</a>
-  <a class="button" href="{% url 'sales:sale_create' card.pk %}">Verkoop registreren</a>{% endif %}
-  <a class="button secondary" href="{% url 'inventory:card_delete' card.pk %}">Verwijderen</a>
+  <a class="button secondary" href="{% url 'pricing:card_advice' card.pk %}">Price advice</a>
+  {% if card.status != "sold" %}<a class="button secondary" href="{% url 'sales:listing_generator' card.pk %}">Create listing</a>
+  <a class="button" href="{% url 'sales:sale_create' card.pk %}">Record sale</a>{% endif %}
+  <a class="button secondary" href="{% url 'inventory:card_delete' card.pk %}">Delete</a>
 </div>
 
 <div class="grid">
   <section class="panel">
-    <h2>Gegevens</h2>
+    <h2>Details</h2>
     <dl class="kv">
-      <dt>Speler</dt><dd>{{ card.player }}</dd>
+      <dt>Player</dt><dd>{{ card.player }}</dd>
       <dt>Sport</dt><dd>{{ card.sport|default:"–" }}</dd>
       <dt>Set</dt><dd>{{ card.set_name }} ({{ card.year }})</dd>
-      <dt>Nummer</dt><dd>{{ card.card_number|default:"–" }}</dd>
+      <dt>Number</dt><dd>{{ card.card_number|default:"–" }}</dd>
       <dt>Variant</dt><dd>{{ card.get_variant_display }}</dd>
-      <dt>Conditie</dt><dd>{{ card.condition|default:"–" }}</dd>
+      <dt>Condition</dt><dd>{{ card.condition|default:"–" }}</dd>
       <dt>Status</dt><dd><span class="badge badge-{{ card.status }}">{{ card.get_status_display }}</span></dd>
-      <dt>Te koop sinds</dt><dd>{{ card.listed_since|date:"d-m-Y"|default:"–" }}</dd>
-      {% if card.status != "sold" %}<dt>Leeftijd (dagen)</dt><dd>{% include "inventory/_age.html" %}</dd>{% endif %}
+      <dt>Listed since</dt><dd>{{ card.listed_since|date:"d-m-Y"|default:"–" }}</dd>
+      {% if card.status != "sold" %}<dt>Age (days)</dt><dd>{% include "inventory/_age.html" %}</dd>{% endif %}
     </dl>
     {% if card.status != "sold" %}
       {% if card.is_pinned %}
       <form method="post" action="{% url 'inventory:unpin_card' card.pk %}" class="inline-form">{% csrf_token %}
         <input type="hidden" name="next" value="{{ request.path }}">
-        <span class="small">Vastgezet tot {{ card.held_until|date:"d-m-Y" }}: geen meldingen.</span>
-        <button class="link">Losmaken</button>
+        <span class="small">Pinned until {{ card.held_until|date:"d-m-Y" }}: no alerts.</span>
+        <button class="link">Unpin</button>
       </form>
       {% else %}
-      <details><summary>Bewust vasthouden (geen meldingen)</summary>
+      <details><summary>Hold on purpose (no alerts)</summary>
         <form method="post" action="{% url 'inventory:pin_card' card.pk %}" class="inline-form">{% csrf_token %}
           <input type="hidden" name="next" value="{{ request.path }}">
           {{ pin_form.held_until }}
-          <button class="secondary">Vastzetten</button>
+          <button class="secondary">Pin</button>
         </form>
       </details>
       {% endif %}
@@ -47,38 +47,38 @@
   </section>
 
   <section class="panel">
-    <h2>Inkoop</h2>
+    <h2>Purchases</h2>
     <div class="table-wrap"><table>
-      <thead><tr><th>Datum</th><th>Bron</th><th class="num">Prijs</th><th class="num">Verzending</th></tr></thead>
+      <thead><tr><th>Date</th><th>Source</th><th class="num">Price</th><th class="num">Shipping</th></tr></thead>
       <tbody>
       {% for p in purchases %}
         <tr><td class="nowrap">{{ p.date|date:"d-m-Y" }}</td><td>{{ p.source|default:"–" }}</td><td class="num">{{ p.price|euro }}</td><td class="num">{{ p.shipping_in|euro }}</td></tr>
-      {% empty %}<tr><td colspan="4" class="muted">Nog geen inkoop vastgelegd.</td></tr>{% endfor %}
+      {% empty %}<tr><td colspan="4" class="muted">No purchase recorded yet.</td></tr>{% endfor %}
       </tbody>
-      <tfoot><tr><th colspan="3">Totaal</th><th class="num">{{ card.total_cost|euro }}</th></tr></tfoot>
+      <tfoot><tr><th colspan="3">Total</th><th class="num">{{ card.total_cost|euro }}</th></tr></tfoot>
     </table></div>
-    <details><summary>Inkoop toevoegen</summary>
+    <details><summary>Add purchase</summary>
       <form method="post" action="{% url 'inventory:purchase_add' card.pk %}">{% csrf_token %}
         {% include "_form_fields.html" with form=purchase_form %}
-        <button>Opslaan</button>
+        <button>Save</button>
       </form>
     </details>
   </section>
 
   {% if sale %}
   <section class="panel">
-    <h2>Verkoop</h2>
+    <h2>Sale</h2>
     <dl class="kv">
-      <dt>Verkocht op</dt><dd>{{ sale.sold_at|date:"d-m-Y" }}</dd>
-      <dt>Verkoopprijs</dt><dd>{{ sale.sale_price|euro }}</dd>
-      <dt>Verzendopbrengst</dt><dd>{{ sale.shipping_income|euro }}</dd>
-      <dt>eBay-commissie</dt><dd>-{{ sale.ebay_commission|euro }}</dd>
-      <dt>Betaalkosten</dt><dd>-{{ sale.payment_fee|euro }}</dd>
-      <dt>Verzendkosten</dt><dd>-{{ sale.shipping_cost|euro }}</dd>
-      <dt>Verpakking</dt><dd>-{{ sale.packaging_cost|euro }}</dd>
-      <dt>Netto</dt><dd>{{ sale.net_proceeds|euro }}</dd>
-      <dt>Inkoop</dt><dd>-{{ card.total_cost|euro }}</dd>
-      <dt><strong>Winst</strong></dt><dd><strong class="{% if profit < 0 %}bad{% else %}good{% endif %}">{{ profit|euro }}</strong></dd>
+      <dt>Sold on</dt><dd>{{ sale.sold_at|date:"d-m-Y" }}</dd>
+      <dt>Sale price</dt><dd>{{ sale.sale_price|euro }}</dd>
+      <dt>Shipping charged</dt><dd>{{ sale.shipping_income|euro }}</dd>
+      <dt>eBay commission</dt><dd>-{{ sale.ebay_commission|euro }}</dd>
+      <dt>Payment fee</dt><dd>-{{ sale.payment_fee|euro }}</dd>
+      <dt>Shipping cost</dt><dd>-{{ sale.shipping_cost|euro }}</dd>
+      <dt>Packaging</dt><dd>-{{ sale.packaging_cost|euro }}</dd>
+      <dt>Net</dt><dd>{{ sale.net_proceeds|euro }}</dd>
+      <dt>Purchase cost</dt><dd>-{{ card.total_cost|euro }}</dd>
+      <dt><strong>Profit</strong></dt><dd><strong class="{% if profit < 0 %}bad{% else %}good{% endif %}">{{ profit|euro }}</strong></dd>
     </dl>
   </section>
   {% endif %}

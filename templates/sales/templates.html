@@ -1,20 +1,20 @@
 {% extends "base.html" %}
-{% block title %}Listing-templates – Card Flip Desk{% endblock %}
+{% block title %}Listing templates – Card Flip Desk{% endblock %}
 {% block content %}
-<h1>Listing-templates</h1>
+<h1>Listing templates</h1>
 <div class="grid">
   <section class="panel">
-    <h2>Jouw templates</h2>
+    <h2>Your templates</h2>
     <ul>
-      <li>Standaard <span class="muted small">(ingebouwd)</span></li>
+      <li>Default <span class="muted small">(built in)</span></li>
       {% for t in templates %}<li><a href="{% url 'sales:template_edit' t.pk %}">{{ t.name }}</a> <code class="small">{{ t.title_pattern }}</code></li>{% endfor %}
     </ul>
     {% include "sales/_placeholders.html" %}
   </section>
   <form method="post" class="panel">{% csrf_token %}
-    <h2>Nieuwe template</h2>
+    <h2>New template</h2>
     {% include "_form_fields.html" %}
-    <button>Opslaan</button>
+    <button>Save</button>
   </form>
 </div>
 {% endblock %}

@@ -1,22 +1,22 @@
 {% extends "base.html" %}
 {% load money %}
-{% block title %}Kostenprofielen – Card Flip Desk{% endblock %}
+{% block title %}Fee profiles – Card Flip Desk{% endblock %}
 {% block content %}
-<h1>Kostenprofielen</h1>
-<p class="muted">eBay past tarieven regelmatig aan. Leg een nieuw tarief vast als nieuw profiel met een latere "geldig vanaf"-datum; oude verkopen houden hun eigen bedragen. Controleer de actuele tarieven in je eBay-account.</p>
+<h1>Fee profiles</h1>
+<p class="muted">eBay changes its rates regularly. Record a new rate as a new profile with a later "valid from" date; past sales keep their own amounts. Check the current rates in your eBay account.</p>
 <div class="grid">
   <div class="table-wrap"><table>
-    <thead><tr><th>Categorie</th><th class="num">Commissie</th><th class="num">Vast</th><th class="num">Betaal</th><th>Geldig vanaf</th></tr></thead>
+    <thead><tr><th>Category</th><th class="num">Commission</th><th class="num">Fixed</th><th class="num">Payment</th><th>Valid from</th></tr></thead>
     <tbody>{% for p in profiles %}
       <tr><td><a href="{% url 'finance:fee_profile_edit' p.pk %}">{{ p.category }}</a></td>
         <td class="num">{{ p.commission_percentage|pct }}</td><td class="num">{{ p.fixed_fee|euro }}</td>
         <td class="num">{{ p.payment_percentage|pct }}</td><td>{{ p.valid_from|date:"d-m-Y" }}</td></tr>
-    {% empty %}<tr><td colspan="5" class="muted">Nog geen profielen.</td></tr>{% endfor %}</tbody>
+    {% empty %}<tr><td colspan="5" class="muted">No profiles yet.</td></tr>{% endfor %}</tbody>
   </table></div>
   <form method="post" class="panel">{% csrf_token %}
-    <h2>Nieuw profiel</h2>
+    <h2>New profile</h2>
     {% include "_form_fields.html" %}
-    <button>Opslaan</button>
+    <button>Save</button>
   </form>
 </div>
 {% endblock %}

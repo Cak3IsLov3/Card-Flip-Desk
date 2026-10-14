@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% load money %}
-{% block title %}Verkopen – Card Flip Desk{% endblock %}
+{% block title %}Sales – Card Flip Desk{% endblock %}
 {% block content %}
-<h1>Verkopen</h1>
+<h1>Sales</h1>
 
 {% if months %}
-<h2>Per maand</h2>
+<h2>Per month</h2>
 <div class="table-wrap"><table>
-  <thead><tr><th>Maand</th><th class="num">Omzet</th><th class="num">Winst</th></tr></thead>
+  <thead><tr><th>Month</th><th class="num">Revenue</th><th class="num">Profit</th></tr></thead>
   <tbody>{% for m in months %}
     <tr><td>{{ m.month|date:"F Y" }}</td><td class="num">{{ m.revenue|euro }}</td>
       <td class="num {% if m.profit_total < 0 %}bad{% endif %}">{{ m.profit_total|euro }}</td></tr>
@@ -15,15 +15,15 @@
 </table></div>
 {% endif %}
 
-<h2>Alle verkopen</h2>
+<h2>All sales</h2>
 <div class="table-wrap"><table>
-  <thead><tr><th>Datum</th><th>Kaart</th><th class="num">Bruto</th><th class="num">Netto</th><th class="num">Inkoop</th><th class="num">Winst</th></tr></thead>
+  <thead><tr><th>Date</th><th>Card</th><th class="num">Gross</th><th class="num">Net</th><th class="num">Cost</th><th class="num">Profit</th></tr></thead>
   <tbody>{% for s in sales %}
     <tr><td>{{ s.sold_at|date:"d-m-Y" }}</td>
       <td><a href="{% url 'inventory:card_detail' s.listing.card.pk %}">{{ s.listing.card }}</a></td>
       <td class="num">{{ s.gross|euro }}</td><td class="num">{{ s.net|euro }}</td>
       <td class="num">{{ s.cost|euro }}</td>
       <td class="num {% if s.profit < 0 %}bad{% else %}good{% endif %}">{{ s.profit|euro }}</td></tr>
-  {% empty %}<tr><td colspan="6" class="muted">Nog geen verkopen.</td></tr>{% endfor %}</tbody>
+  {% empty %}<tr><td colspan="6" class="muted">No sales yet.</td></tr>{% endfor %}</tbody>
 </table></div>
 {% endblock %}

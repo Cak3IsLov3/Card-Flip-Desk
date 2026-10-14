@@ -13,22 +13,22 @@ DEC = models.DecimalField(max_digits=14, decimal_places=2)
 
 
 class ListingStatus(models.TextChoices):
-    DRAFT = "draft", "Concept"
-    ACTIVE = "active", "Actief"
-    SOLD = "sold", "Verkocht"
-    WITHDRAWN = "withdrawn", "Ingetrokken"
+    DRAFT = "draft", "Draft"
+    ACTIVE = "active", "Active"
+    SOLD = "sold", "Sold"
+    WITHDRAWN = "withdrawn", "Withdrawn"
 
 
 class Listing(models.Model):
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="listings")
-    title = models.CharField("titel", max_length=80)
-    description = models.TextField("beschrijving", blank=True)
-    asking_price = models.DecimalField("vraagprijs", **MONEY)
+    title = models.CharField(max_length=80)
+    description = models.TextField(blank=True)
+    asking_price = models.DecimalField("asking price", **MONEY)
     ebay_item_id = models.CharField(max_length=40, blank=True)
     status = models.CharField(
         max_length=20, choices=ListingStatus.choices, default=ListingStatus.DRAFT
     )
-    listed_at = models.DateTimeField("geplaatst op", null=True, blank=True)
+    listed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-id"]
@@ -38,17 +38,17 @@ class Listing(models.Model):
 
 
 class ListingTemplate(models.Model):
-    """Patronen voor titel en beschrijving, met plaatshouders als {speler}.
+    """Title and description patterns, with placeholders such as {player}.
 
-    De geldige plaatshouders staan in `sales.listing_generator.PLACEHOLDERS`.
+    The valid placeholders are listed in `sales.listing_generator.PLACEHOLDERS`.
     """
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="listing_templates"
     )
-    name = models.CharField("naam", max_length=60)
-    title_pattern = models.CharField("titelpatroon", max_length=200)
-    description_pattern = models.TextField("beschrijvingspatroon", blank=True)
+    name = models.CharField(max_length=60)
+    title_pattern = models.CharField(max_length=200)
+    description_pattern = models.TextField(blank=True)
 
     class Meta:
         ordering = ["name"]
@@ -65,10 +65,10 @@ class SaleQuerySet(models.QuerySet):
         return self.filter(listing__card__owner=user)
 
     def with_profit(self):
-        """Annoteert netto-opbrengst; winst = netto - inkoop van de kaart.
+        """Annotate net proceeds; profit = net - the card's purchase cost.
 
-        Inkoop wordt via een subquery opgehaald zodat meerdere aankopen per
-        kaart de verkoopbedragen niet vermenigvuldigen.
+        Purchase cost comes from a subquery so that several purchases per
+        card do not multiply the sale amounts.
         """
         cost = (
             Purchase.objects.filter(card=OuterRef("listing__card"))
@@ -111,7 +111,7 @@ class SaleQuerySet(models.QuerySet):
         )
 
     def totals(self):
-        """Aantal, omzet (bruto), netto, winst. Eén query."""
+        """Count, revenue (gross), net and profit. One query."""
         return self.with_profit().aggregate(
             count=Count("id"),
             revenue=Coalesce(Sum(F("sale_price") + F("shipping_income"), output_field=DEC), Value(ZERO)),
@@ -132,8 +132,8 @@ class SaleQuerySet(models.QuerySet):
         )
 
     def with_days_to_sale(self):
-        """Dagen tot verkoop: vanaf 'te koop sinds', anders vanaf de eerste
-        inkoopdatum. Zonder beide is de waarde None."""
+        """Days to sale: from 'listed since', otherwise from the first purchase
+        date. Without either, the value is None."""
         first_purchase = (
             Purchase.objects.filter(card=OuterRef("listing__card"))
             .order_by("date")
@@ -153,18 +153,18 @@ class SaleQuerySet(models.QuerySet):
 
 
 class Sale(models.Model):
-    """Een verkoop. Kostenbedragen worden vastgelegd op het moment van
-    verkoop, zodat een latere tariefwijziging oude winsten niet verandert."""
+    """A sale. Fee amounts are recorded at the moment of sale, so a later
+    change in rates does not alter past profits."""
 
     listing = models.OneToOneField(Listing, on_delete=models.CASCADE, related_name="sale")
-    sale_price = models.DecimalField("verkoopprijs", **MONEY)
-    shipping_income = models.DecimalField("verzendopbrengst", default=ZERO, **MONEY)
-    ebay_commission = models.DecimalField("eBay-commissie", default=ZERO, **MONEY)
-    payment_fee = models.DecimalField("betaalkosten", default=ZERO, **MONEY)
-    shipping_cost = models.DecimalField("verzendkosten uit", default=ZERO, **MONEY)
-    packaging_cost = models.DecimalField("verpakkingskosten", default=ZERO, **MONEY)
-    sold_at = models.DateField("verkocht op")
-    buyer_country = models.CharField("land koper", max_length=2, blank=True)
+    sale_price = models.DecimalField("sale price", **MONEY)
+    shipping_income = models.DecimalField("shipping charged", default=ZERO, **MONEY)
+    ebay_commission = models.DecimalField("eBay commission", default=ZERO, **MONEY)
+    payment_fee = models.DecimalField(default=ZERO, **MONEY)
+    shipping_cost = models.DecimalField(default=ZERO, **MONEY)
+    packaging_cost = models.DecimalField(default=ZERO, **MONEY)
+    sold_at = models.DateField("sold on")
+    buyer_country = models.CharField(max_length=2, blank=True)
 
     objects = SaleQuerySet.as_manager()
 
