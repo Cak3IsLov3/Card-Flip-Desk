@@ -35,6 +35,8 @@ INSTALLED_APPS = [
     "inventory",
     "finance",
     "sales",
+    "ebay",
+    "pricing",
 ]
 
 MIDDLEWARE = [
@@ -127,6 +129,28 @@ MAILERS = {
         "BACKEND": "django.core.mail.backends.console.EmailBackend",
     },
 }
+
+
+# eBay. Zonder EBAY_CLIENT_ID/SECRET werkt de app gewoon, alleen zonder
+# actieve eBay-prijzen. Sleutels horen in omgevingsvariabelen, nooit in git.
+EBAY_ENVIRONMENT = os.environ.get("EBAY_ENVIRONMENT", "sandbox")  # sandbox | production
+EBAY_CLIENT_ID = os.environ.get("EBAY_CLIENT_ID", "")
+EBAY_CLIENT_SECRET = os.environ.get("EBAY_CLIENT_SECRET", "")
+EBAY_RUNAME = os.environ.get("EBAY_RUNAME", "")  # redirect_uri voor de Authorization Code Flow
+EBAY_MARKETPLACE_ID = os.environ.get("EBAY_MARKETPLACE_ID", "EBAY_NL")
+EBAY_CURRENCY = os.environ.get("EBAY_CURRENCY", "EUR")
+EBAY_CATEGORY_IDS = os.environ.get("EBAY_CATEGORY_IDS", "")  # optioneel, bv. sportkaarten
+EBAY_USER_SCOPES = os.environ.get(
+    "EBAY_USER_SCOPES",
+    "https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory.readonly",
+).split()
+EBAY_DAILY_CALL_BUDGET = int(os.environ.get("EBAY_DAILY_CALL_BUDGET", "4500"))  # eBay: 5000/dag
+EBAY_CACHE_SECONDS = int(os.environ.get("EBAY_CACHE_SECONDS", str(6 * 3600)))
+
+# Fernet-sleutel(s) voor tokens in de database, komma-gescheiden (de eerste
+# versleutelt, de rest kan nog ontsleutelen: zo roteer je sleutels).
+# Maak er een met: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+TOKEN_ENCRYPTION_KEYS = [k for k in os.environ.get("TOKEN_ENCRYPTION_KEYS", "").split(",") if k]
 
 
 REST_FRAMEWORK = {

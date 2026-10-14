@@ -15,7 +15,8 @@ verkoop op eBay, en uitrekent wat er na alle kosten echt overblijft.
 | 6 | Dashboard met KPI's, grafieken en voorraadleeftijd | ✅ |
 | 7 | Listing-generator met templates en controles | ✅ |
 | 8 | Waarschuwingen voor oude voorraad, 'Aandacht nodig', wekelijkse mail | ✅ |
-| 9–11 | eBay, API, docs | open |
+| 9 | eBay OAuth + Browse API voor prijsadvies | ✅ |
+| 10–11 | REST API, docs | open |
 
 ## Starten
 
@@ -40,7 +41,9 @@ finance/     calculator.py (pure functies), FeeProfile
 sales/       Listing, Sale, SaleQuerySet (winst via subquery), services.register_sale,
              dashboard.py (voegt queryset-cijfers samen, expliciete 'today'),
              listing_generator.py (titels/beschrijvingen uit patronen), ListingTemplate
-tests/       pytest-django
+ebay/        client.py (tokens, retries, budget, ETag-cache), oauth.py, crypto.py
+pricing/     advice.py (actieve listings + eigen historie), PriceSnapshot
+tests/       pytest-django, respx voor eBay-mocks
 ```
 
 **Bedrijfsregels in services, niet in views.** `finance/calculator.py` heeft
@@ -156,3 +159,55 @@ schtasks /Create /SC WEEKLY /D MON /ST 08:00 /TN "Card Flip Desk digest" /TR "\"
 
 Stel voor echte mail een SMTP-backend in `MAILERS` in en zet `SITE_URL` en
 `DEFAULT_FROM_EMAIL` via omgevingsvariabelen.
+### eBay-koppeling
+
+**Wat eBay toestaat (onderzocht oktober 2026, developer.ebay.com):**
+
+- `GET /buy/browse/v1/item_summary/search` heeft alleen een
+  **applicatietoken** nodig (client credentials, scope
+  `https://api.ebay.com/oauth/api_scope`). Standaard 5.000 calls per dag;
+  tokens 1.000 per dag, 2 uur geldig. Zonder `buyingOptions`-filter komen
+  alleen Buy It Now-listings terug.
+- De Buy API's zijn deels *Limited Release*: in de **sandbox** mag iedereen
+  met een developeraccount, voor **productie** moet je toegang aanvragen
+  (eBay Partner Network) en goedkeuring is niet gegarandeerd.
+- **Verkochte items** (Marketplace Insights API) zijn alleen beperkt
+  toegankelijk. Daarom telt de eigen verkoophistorie in de app zwaarder en
+  komt er een CSV-import uit Seller Hub.
+- Listings plaatsen loopt via de Sell API's en een **gebruikerstoken**
+  (Authorization Code Flow met een RuName). Die flow is gebouwd en getest,
+  maar wordt nog nergens voor gebruikt: de app leest en rekent eerst.
+
+**Hoe de client werkt:** applicatietoken in de cache tot 5 minuten vóór
+verloop; bij een 401 één keer een nieuw token. Retries met exponentiële
+backoff bij netwerkfouten, 429 en 5xx (een `Retry-After` gaat voor, maximaal
+10 s). Een dagbudget (`EBAY_DAILY_CALL_BUDGET`, standaard 4.500) onder de
+eBay-limiet. GET-antwoorden komen in `CachedResponse` (standaard 6 uur
+vers, daarna opnieuw valideren met `If-None-Match`). Is eBay onbereikbaar,
+dan toont de app het laatst bewaarde antwoord met een melding, of anders
+alleen de eigen historie. De rest van de app werkt gewoon door.
+
+**Prijsadvies:** zoekterm uit de kaartgegevens (aan te passen), alleen
+listings in `EBAY_CURRENCY` en met de achternaam van de speler in de titel.
+Je ziet minimum, mediaan, maximum en het aantal. De richtprijs is de mediaan
+van je eigen verkopen (vanaf 2), anders de mediaan van de vraagprijzen, met
+de waarschuwing dat dat geen verkoopprijzen zijn. Elke ophaalactie geeft een
+`PriceSnapshot`. eBay-data wordt behandeld als onbetrouwbare invoer:
+bedragen als Decimal, links alleen naar https-eBay-domeinen, en alles
+ge-escaped.
+
+**Tokens in de database** staan versleuteld met Fernet
+(`TOKEN_ENCRYPTION_KEYS`, meerdere sleutels voor rotatie). Buiten DEBUG
+weigert de app te starten met tokens zonder sleutel. OAuth `state` wordt
+in de sessie bewaard en in constante tijd vergeleken.
+
+**Instellen** (omgevingsvariabelen, nooit in git):
+
+| Variabele | Voorbeeld |
+|---|---|
+| `EBAY_ENVIRONMENT` | `sandbox` of `production` |
+| `EBAY_CLIENT_ID` / `EBAY_CLIENT_SECRET` | uit *Application Keys* |
+| `EBAY_RUNAME` | alleen voor de gebruikerskoppeling; accept-URL = `SITE_URL` + `/ebay/callback/` |
+| `EBAY_MARKETPLACE_ID` / `EBAY_CURRENCY` | `EBAY_NL` / `EUR` |
+| `EBAY_CATEGORY_IDS` | optioneel, om het zoeken te beperken |
+| `TOKEN_ENCRYPTION_KEYS` | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |

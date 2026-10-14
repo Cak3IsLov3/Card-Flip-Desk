@@ -15,4 +15,6 @@ urlpatterns = [
     path("", include("inventory.urls")),
     path("financien/", include("finance.urls")),
     path("verkopen/", include("sales.urls")),
+    path("ebay/", include("ebay.urls")),
+    path("prijsadvies/", include("pricing.urls")),
 ]

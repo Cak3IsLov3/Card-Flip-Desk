@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Prijsadvies – {{ card }} – Card Flip Desk{% endblock %}
+{% block content %}
+<h1>Prijsadvies</h1>
+<p><a href="{% url 'inventory:card_detail' card.pk %}">← {{ card }}</a></p>
+
+<form method="post" class="filters" hx-post="{% url 'pricing:card_advice' card.pk %}" hx-target="#advice" hx-swap="outerHTML"
+      hx-indicator="#advice-loading">{% csrf_token %}
+  <div class="field" style="flex: 1; min-width: 240px">
+    <label for="q">Zoekterm op eBay</label>
+    <input id="q" name="q" value="{{ advice.query|default:default_query }}" maxlength="200">
+  </div>
+  <button>Actieve listings ophalen</button>
+  <span id="advice-loading" class="htmx-indicator muted small">Ophalen…</span>
+</form>
+
+{% include "pricing/_advice.html" %}
+{% endblock %}

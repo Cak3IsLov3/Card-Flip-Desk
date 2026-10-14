@@ -15,6 +15,34 @@ def private_media(settings, tmp_path):
     return settings.PRIVATE_MEDIA_ROOT
 
 
+@pytest.fixture(autouse=True)
+def isolated_ebay(settings):
+    """Geen echte eBay-sleutels en een schone cache (tokens, budget) per test."""
+    from django.core.cache import cache
+
+    settings.EBAY_ENVIRONMENT = "sandbox"
+    settings.EBAY_CLIENT_ID = ""
+    settings.EBAY_CLIENT_SECRET = ""
+    settings.EBAY_RUNAME = ""
+    settings.EBAY_MARKETPLACE_ID = "EBAY_NL"
+    settings.EBAY_CURRENCY = "EUR"
+    settings.EBAY_CATEGORY_IDS = ""
+    settings.EBAY_DAILY_CALL_BUDGET = 4500
+    settings.EBAY_CACHE_SECONDS = 3600
+    # Tests draaien met DEBUG=False; dan is een expliciete sleutel verplicht.
+    settings.TOKEN_ENCRYPTION_KEYS = ["dGVzdC1zbGV1dGVsLWFsbGVlbi12b29yLXRlc3RzISE="]
+    cache.clear()
+    yield
+    cache.clear()
+
+
+@pytest.fixture
+def ebay_keys(settings):
+    settings.EBAY_CLIENT_ID = "test-client-id"
+    settings.EBAY_CLIENT_SECRET = "test-client-secret"
+    settings.EBAY_RUNAME = "Test_RuName-123"
+
+
 @pytest.fixture
 def user(db):
     return get_user_model().objects.create_user("alice", password="test-pass-123")

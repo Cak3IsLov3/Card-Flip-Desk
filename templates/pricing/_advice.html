@@ -1,0 +1,75 @@
+{% load money %}
+<div id="advice">
+  <div class="msg msg-warning small">Let op: actieve listings zijn <strong>vraagprijzen</strong>, geen verkoopprijzen. Wat te duur staat, blijft vaak staan.</div>
+
+  <section class="panel">
+    <h2>Advies</h2>
+    {% if advice.summary %}
+      {% for line in advice.summary %}<p>{{ line }}</p>{% endfor %}
+    {% elif not fetched %}
+      <p class="muted">Haal actieve listings op, of verkoop eerst vergelijkbare kaarten om een eigen historie op te bouwen.</p>
+    {% else %}
+      <p class="muted">Nog te weinig gegevens voor een richtprijs. Kies zelf een prijs met de <a href="{% url 'finance:calculator' %}?card={{ card.pk }}">calculator</a>.</p>
+    {% endif %}
+    {% if advice.suggested_price is not None %}
+      <p>Richtprijs: <strong>{{ advice.suggested_price|euro }}</strong> <span class="muted small">— {{ advice.basis }}</span></p>
+      {% if advice.preview %}
+      <p class="small {% if advice.preview.is_loss %}bad{% else %}muted{% endif %}">Bij die prijs (zonder verzending): winst {{ advice.preview.profit|euro }}, marge {{ advice.preview.margin|pct }}.{% if advice.preview.is_loss %} Je maakt verlies.{% endif %}</p>
+      {% endif %}
+      <p><a class="button secondary" href="{% url 'sales:listing_generator' card.pk %}">Naar de listing-generator</a></p>
+    {% endif %}
+  </section>
+
+  {% if advice.active %}
+  <section class="panel">
+    <h2>Actieve listings op eBay</h2>
+    {% if advice.active.error %}
+      <p class="{% if advice.active.not_configured %}muted{% else %}bad{% endif %}">{{ advice.active.error }}</p>
+      {% if advice.active.not_configured %}<p class="small"><a href="{% url 'ebay:connection' %}">eBay-koppeling instellen</a></p>{% endif %}
+    {% else %}
+      <p class="small muted">
+        {% if advice.active.stale %}<span class="bad">eBay was niet bereikbaar; dit is de laatst bewaarde versie van {{ advice.active.fetched_at|date:"d-m-Y H:i" }}.</span>
+        {% elif advice.active.from_cache %}Bewaarde versie van {{ advice.active.fetched_at|date:"d-m-Y H:i" }} (spaart je eBay-budget).
+        {% else %}Zojuist opgehaald.{% endif %}
+        eBay vond {{ advice.active.total }} resultaten; {{ advice.active.items|length }} gebruikt
+        {% if advice.active.excluded_irrelevant %}· {{ advice.active.excluded_irrelevant }} zonder de spelersnaam in de titel overgeslagen{% endif %}
+        {% if advice.active.excluded_currency %}· {{ advice.active.excluded_currency }} in een andere valuta overgeslagen{% endif %}.
+      </p>
+      {% if advice.active.items %}
+      <div class="table-wrap"><table>
+        <thead><tr><th>Titel</th><th>Conditie</th><th class="num">Prijs</th></tr></thead>
+        <tbody>{% for item in advice.active.items|slice:":25" %}
+          <tr><td>{% if item.url %}<a href="{{ item.url }}" target="_blank" rel="noopener noreferrer">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}</td>
+            <td class="small">{{ item.condition|default:"–" }}</td><td class="num">{{ item.price|euro }}</td></tr>
+        {% endfor %}</tbody>
+      </table></div>
+      {% endif %}
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <section class="panel">
+    <h2>Eigen verkopen (zelfde speler en set)</h2>
+    {% if advice.own.sales %}
+    <div class="table-wrap"><table>
+      <thead><tr><th>Datum</th><th>Kaart</th><th class="num">Verkoopprijs</th></tr></thead>
+      <tbody>{% for s in advice.own.sales %}
+        <tr><td class="nowrap">{{ s.sold_at|date:"d-m-Y" }}</td><td>{{ s.listing.card }}</td><td class="num">{{ s.sale_price|euro }}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+    {% else %}<p class="muted">Nog geen verkopen van deze speler uit deze set.</p>{% endif %}
+  </section>
+
+  {% if snapshots %}
+  <section class="panel">
+    <h2>Eerdere momentopnames</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Moment</th><th>Bron</th><th class="num">Aantal</th><th class="num">Laagste</th><th class="num">Mediaan</th><th class="num">Hoogste</th></tr></thead>
+      <tbody>{% for s in snapshots %}
+        <tr><td class="nowrap">{{ s.taken_at|date:"d-m-Y H:i" }}</td><td>{{ s.get_source_display }}</td><td class="num">{{ s.listing_count }}</td>
+          <td class="num">{{ s.minimum|euro }}</td><td class="num">{{ s.price|euro }}</td><td class="num">{{ s.maximum|euro }}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+  </section>
+  {% endif %}
+</div>

@@ -6,6 +6,7 @@
 <div class="actions">
   <a class="button secondary" href="{% url 'inventory:card_update' card.pk %}">Bewerken</a>
   <a class="button secondary" href="{% url 'finance:calculator' %}?card={{ card.pk }}">Calculator</a>
+  <a class="button secondary" href="{% url 'pricing:card_advice' card.pk %}">Prijsadvies</a>
   {% if card.status != "sold" %}<a class="button secondary" href="{% url 'sales:listing_generator' card.pk %}">Listing maken</a>
   <a class="button" href="{% url 'sales:sale_create' card.pk %}">Verkoop registreren</a>{% endif %}
   <a class="button secondary" href="{% url 'inventory:card_delete' card.pk %}">Verwijderen</a>
