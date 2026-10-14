@@ -12,7 +12,7 @@ MAPPING = {
     "set_name": "Set",
     "year": "Year",
     "card_number": "Number",
-    "variant": "Variant",
+    "variants": "Variant",
     "purchase_price": "Cost",
 }
 
@@ -34,11 +34,11 @@ def test_bad_rows_reported_without_blocking_good_rows(user):
     assert [e.row for e in report.errors] == [3, 4, 6]
     assert "Player" in report.errors[0].errors
     assert "Year" in report.errors[1].errors
-    assert "Variant" in report.errors[2].errors
+    assert "Variants" in report.errors[2].errors
 
     haaland = Card.objects.get(player="Haaland")
     assert haaland.owner == user
-    assert haaland.variant == "rookie"
+    assert haaland.variants == ["rookie"]
     assert haaland.total_cost == D("4.50")
     assert Card.objects.get(player="Saka").total_cost == D("0.99")
 
@@ -46,7 +46,7 @@ def test_bad_rows_reported_without_blocking_good_rows(user):
 def test_empty_variant_defaults_to_base(user):
     import_cards("player,set,year\nKane,Topps,2021\n", {"player": "player", "set_name": "set", "year": "year"}, user)
     card = Card.objects.get()
-    assert card.variant == "base"
+    assert card.variants == []
     assert not card.purchases.exists()
 
 

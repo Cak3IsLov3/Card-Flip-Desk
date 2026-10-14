@@ -74,7 +74,7 @@ def test_token_page_creates_and_revokes(user, client_for):
 # --- cards and ownership -------------------------------------------------------
 
 def test_card_crud(api, user):
-    resp = api.post(url("card-list"), {"player": "Saka", "set_name": "Prizm", "year": 2022, "variant": "base"},
+    resp = api.post(url("card-list"), {"player": "Saka", "set_name": "Prizm", "year": 2022, "variants": []},
                     format="json")
     assert resp.status_code == 201
     card_id = resp.data["id"]
@@ -87,7 +87,10 @@ def test_card_crud(api, user):
     assert resp.data["total_cost"] == "3.00"
     assert resp.data["purchases"][0]["price"] == "2.50"
 
-    assert api.patch(url("card-detail", card_id), {"condition": "Mint"}, format="json").data["condition"] == "Mint"
+    assert api.patch(url("card-detail", card_id), {"condition": "mint"}, format="json").data["condition"] == "mint"
+    resp = api.patch(url("card-detail", card_id), {"variants": ["auto", "rookie", "rookie"]}, format="json")
+    assert resp.data["variants"] == ["rookie", "auto"]  # sorted and without duplicates
+    assert api.patch(url("card-detail", card_id), {"variants": ["holo"]}, format="json").status_code == 400
     assert api.delete(url("card-detail", card_id)).status_code == 204
     assert not Card.objects.exists()
 
@@ -191,7 +194,7 @@ def test_cannot_upload_photo_to_other_users_card(other_api, user, make_card):
 # --- listings and sales --------------------------------------------------------
 
 def test_generate_listing(api, user, make_card):
-    card = make_card(user, variant="rookie", condition="Near Mint")
+    card = make_card(user, variants=["rookie"], condition="near_mint")
     resp = api.post(url("card-generate-listing", card.pk), {}, format="json")
     assert resp.data["title"] == "2023 Topps Chrome Erling Haaland #15 Rookie Near Mint"
     assert "There are no photos yet." in resp.data["warnings"]

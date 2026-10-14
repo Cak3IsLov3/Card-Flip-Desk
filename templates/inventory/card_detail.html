@@ -20,8 +20,8 @@
       <dt>Sport</dt><dd>{{ card.sport|default:"–" }}</dd>
       <dt>Set</dt><dd>{{ card.set_name }} ({{ card.year }})</dd>
       <dt>Number</dt><dd>{{ card.card_number|default:"–" }}</dd>
-      <dt>Variant</dt><dd>{{ card.get_variant_display }}</dd>
-      <dt>Condition</dt><dd>{{ card.condition|default:"–" }}</dd>
+      <dt>Variants</dt><dd>{{ card.variant_display }}</dd>
+      <dt>Condition</dt><dd>{{ card.get_condition_display|default:"–" }}</dd>
       <dt>Status</dt><dd><span class="badge badge-{{ card.status }}">{{ card.get_status_display }}</span></dd>
       <dt>Listed since</dt><dd>{{ card.listed_since|date:"d-m-Y"|default:"–" }}</dd>
       {% if card.status != "sold" %}<dt>Age (days)</dt><dd>{% include "inventory/_age.html" %}</dd>{% endif %}

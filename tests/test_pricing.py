@@ -48,7 +48,7 @@ def ebay_ok(ebay_keys, respx_mock):
 
 def test_search_query(card):
     assert search_query(card) == "2023 Topps Chrome Erling Haaland 15"
-    card.variant = "rookie"
+    card.variants = ["rookie"]
     card.card_number = ""
     assert search_query(card) == "2023 Topps Chrome Erling Haaland Rookie"
 

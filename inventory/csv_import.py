@@ -6,13 +6,14 @@ ends up in the report but does not block the others.
 
 import csv
 import io
+import re
 from dataclasses import dataclass, field
 
 from django import forms
 from django.db import transaction
 from django.utils import timezone
 
-from .models import Card, Purchase
+from .models import Card, Purchase, normalise_serial, normalise_variants, parse_condition
 
 # Fields that can be mapped from a CSV, with their display label.
 IMPORT_FIELDS = {
@@ -21,7 +22,10 @@ IMPORT_FIELDS = {
     "set_name": "Set",
     "year": "Year",
     "card_number": "Card number",
-    "variant": "Variant",
+    "variants": "Variants",
+    "parallel_name": "Parallel name",
+    "parallel_serial": "Serial number",
+    "insert_name": "Insert name",
     "condition": "Condition",
     "notes": "Notes",
     "purchase_price": "Purchase price",
@@ -38,7 +42,10 @@ HEADER_ALIASES = {
     "set_name": {"set", "set_name", "serie"},
     "year": {"year", "jaar"},
     "card_number": {"card_number", "card number", "number", "no", "nummer", "kaartnummer", "#"},
-    "variant": {"variant", "type"},
+    "variants": {"variant", "variants", "type"},
+    "parallel_name": {"parallel", "parallel_name", "parallel name"},
+    "parallel_serial": {"serial", "serial number", "parallel_serial", "numbered"},
+    "insert_name": {"insert", "insert_name", "insert name"},
     "condition": {"condition", "conditie", "staat"},
     "notes": {"notes", "notities", "opmerkingen"},
     "purchase_price": {"purchase_price", "purchase price", "price", "cost", "inkoopprijs", "prijs", "inkoop"},
@@ -55,18 +62,38 @@ class CardRowForm(forms.ModelForm):
         required=False, input_formats=["%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y"]
     )
     source = forms.CharField(max_length=120, required=False)
+    # One cell can hold several variants: "Rookie, Auto", "rookie/auto", "Rookie Auto".
+    variants = forms.CharField(required=False)
+    # Accept "Near Mint", "NM", "nm-mt" … as well as the codes.
+    condition = forms.CharField(required=False)
+    parallel_serial = forms.CharField(required=False)
+
+    def clean_condition(self):
+        code = parse_condition(self.cleaned_data.get("condition"))
+        if code is None:
+            raise forms.ValidationError("Unknown condition; use e.g. Mint, Near Mint, Excellent, Very Good.")
+        return code
+
+    def clean_parallel_serial(self):
+        try:
+            return normalise_serial(self.cleaned_data.get("parallel_serial") or "")
+        except ValueError as exc:
+            raise forms.ValidationError(str(exc)) from None
 
     class Meta:
         model = Card
-        fields = ["player", "sport", "set_name", "year", "card_number", "variant", "condition", "notes"]
+        fields = [
+            "player", "sport", "set_name", "year", "card_number", "variants", "parallel_name",
+            "parallel_serial", "insert_name", "condition", "notes",
+        ]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # An empty variant means "base", not "invalid".
-        self.fields["variant"].required = False
-
-    def clean_variant(self):
-        return (self.cleaned_data.get("variant") or "base").lower()
+    def clean_variants(self):
+        raw = self.cleaned_data.get("variants") or ""
+        try:
+            # An empty cell (or "base") means a base card, not an error.
+            return normalise_variants(re.split(r"[,/+|\s]+", raw))
+        except ValueError as exc:
+            raise forms.ValidationError(str(exc)) from None
 
     def clean(self):
         cleaned = super().clean()

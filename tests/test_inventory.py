@@ -19,7 +19,10 @@ def test_create_card_with_purchase(user, client_for):
             "player": "Lamine Yamal",
             "set_name": "Topps Chrome",
             "year": "2024",
-            "variant": "rookie",
+            "variants": ["rookie", "parallel"],
+            "parallel_name": "Gold Refractor",
+            "parallel_serial": "23 / 50",
+            "condition": "mint",
             "status": "in_stock",
             "purchase-price": "7.50",
             "purchase-shipping_in": "1.00",
@@ -30,22 +33,28 @@ def test_create_card_with_purchase(user, client_for):
     card = Card.objects.get()
     assert card.owner == user
     assert card.total_cost == D("8.50")
+    assert card.variants == ["rookie", "parallel"]
+    assert (card.parallel_name, card.parallel_serial) == ("Gold Refractor", "23/50")
+    assert card.variant_display == "Rookie, Parallel (Gold Refractor 23/50)"
+    assert card.get_condition_display() == "Mint"
 
 
 def test_create_card_without_purchase(user, client_for):
     resp = client_for(user).post(
         reverse("inventory:card_create"),
-        {"player": "Kane", "set_name": "Topps", "year": "2021", "variant": "base", "status": "in_stock",
+        {"player": "Kane", "set_name": "Topps", "year": "2021", "status": "in_stock",
          "purchase-shipping_in": "0.00"},
     )
     assert resp.status_code == 302
-    assert not Card.objects.get().purchases.exists()
+    card = Card.objects.get()
+    assert not card.purchases.exists()
+    assert card.variants == [] and card.variant_display == "Base"
 
 
 def test_for_sale_sets_listed_since(user, client_for):
     client_for(user).post(
         reverse("inventory:card_create"),
-        {"player": "Kane", "set_name": "Topps", "year": "2021", "variant": "base", "status": "for_sale",
+        {"player": "Kane", "set_name": "Topps", "year": "2021", "status": "for_sale",
          "purchase-shipping_in": "0.00"},
     )
     assert Card.objects.get().listed_since is not None

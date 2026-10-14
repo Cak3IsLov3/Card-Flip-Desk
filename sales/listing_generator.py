@@ -9,7 +9,7 @@ import re
 import unicodedata
 from dataclasses import dataclass, field
 
-from inventory.models import Card, PhotoLabel, Variant
+from inventory.models import Card, PhotoLabel
 from inventory.photos import photo_checklist
 
 TITLE_MAX_LENGTH = 80  # eBay limit, in characters
@@ -32,7 +32,10 @@ PLACEHOLDERS = {
     "set": "Set",
     "player": "Player",
     "number": "Card number",
-    "variant": "Variant (empty for base)",
+    "variant": "Variants, e.g. Rookie Gold Refractor (empty for base)",
+    "parallel": "Which parallel (empty if none)",
+    "serial": "Serial number of a numbered parallel, e.g. 23/50",
+    "insert": "Which insert (empty if none)",
     "condition": "Condition",
     "sport": "Sport",
     "notes": "Notes on the card",
@@ -64,8 +67,11 @@ def card_values(card: Card, photos=None) -> dict[str, str]:
         "set": card.set_name,
         "player": card.player,
         "number": card.card_number,
-        "variant": "" if card.variant == Variant.BASE else card.get_variant_display(),
-        "condition": card.condition,
+        "variant": " ".join(card.variant_labels),
+        "parallel": card.parallel_name if "parallel" in card.variants else "",
+        "serial": card.parallel_serial if "parallel" in card.variants else "",
+        "insert": card.insert_name if "insert" in card.variants else "",
+        "condition": card.get_condition_display(),
         "sport": card.sport,
         "notes": card.notes,
         "defects": defect_note,
@@ -151,7 +157,8 @@ def generate(card: Card, title_pattern: str, description_pattern: str) -> Genera
             f"Title is {len(full_title)} characters (max. {TITLE_MAX_LENGTH}) and was cut; "
             f"dropped: “{dropped}”."
         )
-    labels = {k: PLACEHOLDERS[k] for k in empty_in_title if k not in ("variant", "defects", "notes")}
+    optional = ("variant", "parallel", "serial", "insert", "defects", "notes")
+    labels = {k: PLACEHOLDERS[k] for k in empty_in_title if k not in optional}
     if labels:
         warnings.append("Empty in the title: " + ", ".join(labels.values()).lower() + ".")
     warnings.extend(photo_checklist(card, photos))

@@ -42,7 +42,7 @@ when eBay goes down.
 
 | | |
 |---|---|
-| **Inventory** | Cards with purchases, filters and search (HTMX), inventory value, counts per set. CSV import with column mapping; bad rows end up in a report without blocking the rest. |
+| **Inventory** | Cards with purchases, filters and search (HTMX), inventory value, counts per set. Several variants per card (Rookie, Auto, Parallel, Insert) with the parallel name and serial number (23/50) or insert name, and a condition from a fixed list. CSV import with column mapping; bad rows end up in a report without blocking the rest. |
 | **Calculator** | Commission, payment fees, net, profit and margin. Also in reverse: "I want €X profit" gives the lowest asking price. Rates live in fee profiles, not in the code. |
 | **Photos** | 1–6 per card, with a main photo and ordering. Resized, thumbnailed, EXIF removed, and only visible to the owner. |
 | **Sales and dashboard** | Fees recorded at the rate that applied on the sale date. Profit per card, set and month, weighted margin, days to sale, and money tied up in stock. |
@@ -236,6 +236,25 @@ profile (13.25% + €0.35) is an example; check the current eBay rates.
   with a warning that says what was dropped.
 - **Characters:** Unicode is normalised (NFC) and control characters are
   removed. Card data is never re-read as a pattern.
+- **Variants:** `{variant}` lists every variant in a fixed order and uses the
+  name when you entered one, e.g. "Rookie Gold Refractor 23/50". `{parallel}`,
+  `{serial}` and `{insert}` are available for templates that want them
+  separately.
+
+### Card details
+
+- **Variants:** a card can be several at once (a rookie auto, a numbered
+  parallel insert …); nothing ticked means a base card. They are stored as a
+  list in a fixed order without duplicates.
+- **Parallel and insert:** "Which parallel?", "Serial number" and "Which
+  insert?" appear only while that variant is ticked, and are cleared when you
+  untick it. A serial number is `23/50` or `/50`; a number above the print run
+  is rejected.
+- **Price advice** searches on the print run (`/50`), not the exact copy
+  (`23/50`), which would find almost nothing.
+- **Condition** is a choice: Mint, Near Mint, Excellent, Very Good, Good, Fair,
+  Poor. The CSV import also understands abbreviations such as `NM`, `NM-MT` and
+  `EX`, and several variants in one cell (`Rookie/Auto`, `rookie auto`).
 
 ### Stale inventory
 
@@ -379,7 +398,7 @@ development.
   migrations are missing, OpenAPI schema validation (warnings fail the build)
   and the full pytest suite.
 
-243 tests, without a network (eBay is mocked with respx), in about a minute
+274 tests, without a network (eBay is mocked with respx), in about a minute
 and a half. A selection:
 
 - **Calculator:** known examples with exact `Decimal`s, rounding boundaries
@@ -389,7 +408,10 @@ and a half. A selection:
   thumbnail dimensions, EXIF gone (including GPS), at most one main photo,
   files removed when a card is deleted, another user gets a 404.
 - **CSV import:** bad rows reported with the right line number, the rest goes
-  through.
+  through; several variants per cell, condition abbreviations and serial numbers.
+- **Card details:** variant order and duplicates, names cleared when a variant is
+  unticked, serial number validation, the variant filter, and the title and search
+  query built from them.
 - **Title generator:** exactly 80 characters, 81 characters, missing fields,
   special characters and Unicode normalisation.
 - **Stale inventory:** 29, 30 and 31 days, pinned cards, a loss on a price
@@ -400,7 +422,8 @@ and a half. A selection:
   budget, encryption and key rotation, OAuth `state`.
 - **Access:** for every endpoint (web and API), another user can neither see
   nor change anything.
-- **Data migrations:** the switch to English placeholder names and category.
+- **Data migrations:** the switch to English placeholder names and category, and
+  free-text conditions mapped to the new choices (unknown text moves to the notes).
 
 ## Known limitations and next steps
 

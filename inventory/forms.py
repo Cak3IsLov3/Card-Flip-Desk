@@ -4,25 +4,58 @@ from django import forms
 from django.utils import timezone
 
 from .csv_import import IMPORT_FIELDS, REQUIRED_FIELDS
-from .models import Card, CardStatus, PhotoLabel, Purchase, StaleThreshold
+from .models import Card, CardStatus, Condition, PhotoLabel, Purchase, StaleThreshold, Variant
 
 
 class DateInput(forms.DateInput):
     input_type = "date"
 
 
+class VariantField(forms.MultipleChoiceField):
+    """Checkboxes; nothing ticked means a base card."""
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("label", "Variants")
+        kwargs.setdefault("help_text", "Tick all that apply; leave empty for a base card.")
+        super().__init__(
+            choices=Variant.choices, required=False, widget=forms.CheckboxSelectMultiple, **kwargs
+        )
+
+
 class CardForm(forms.ModelForm):
+    variants = VariantField()
+
     class Meta:
         model = Card
         fields = [
-            "player", "sport", "set_name", "year", "card_number", "variant",
-            "condition", "status", "listed_since", "held_until", "notes",
+            "player", "sport", "set_name", "year", "card_number", "variants", "parallel_name",
+            "parallel_serial", "insert_name", "condition", "status", "listed_since", "held_until", "notes",
         ]
+        labels = {
+            "parallel_name": "Which parallel?",
+            "parallel_serial": "Serial number",
+            "insert_name": "Which insert?",
+        }
+        help_texts = {
+            "parallel_name": "Optional, e.g. Gold Refractor. Used in the listing title.",
+            "parallel_serial": "Optional, for numbered parallels: 23/50, or /50 if you only know the print run.",
+            "insert_name": "Optional, e.g. Future Stars. Used in the listing title.",
+        }
         widgets = {
             "listed_since": DateInput,
             "held_until": DateInput,
             "notes": forms.Textarea(attrs={"rows": 3}),
+            # card_form.js shows these only while the matching variant is ticked.
+            "parallel_name": forms.TextInput(attrs={"data-show-with-variant": "parallel"}),
+            "parallel_serial": forms.TextInput(
+                attrs={"data-show-with-variant": "parallel", "placeholder": "23/50", "inputmode": "numeric"}
+            ),
+            "insert_name": forms.TextInput(attrs={"data-show-with-variant": "insert"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["condition"].choices = [("", "Not specified"), *Condition.choices]
 
     def clean(self):
         cleaned = super().clean()
@@ -50,6 +83,9 @@ class CardFilterForm(forms.Form):
     )
     set_name = forms.CharField(required=False, label="Set")
     year = forms.IntegerField(required=False, label="Year")
+    variant = forms.ChoiceField(
+        required=False, label="Variant", choices=[("", "Any"), ("base", "Base"), *Variant.choices]
+    )
 
     def apply(self, qs):
         if not self.is_valid():
@@ -62,6 +98,11 @@ class CardFilterForm(forms.Form):
             qs = qs.filter(set_name__icontains=data["set_name"])
         if data.get("year"):
             qs = qs.filter(year=data["year"])
+        if data.get("variant") == "base":
+            qs = qs.filter(variants=[])
+        elif data.get("variant"):
+            # The JSON text contains the quoted code, e.g. ["rookie", "auto"].
+            qs = qs.filter(variants__icontains=f'"{data["variant"]}"')
         return qs
 
 

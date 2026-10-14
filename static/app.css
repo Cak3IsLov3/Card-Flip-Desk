@@ -107,3 +107,7 @@ code { font-size: .85em; background: var(--bg); padding: .05rem .3rem; border-ra
 .inline-form { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .5rem; }
 .inline-form input[type=number] { width: 6rem; }
 .price-suggestion { margin: .5rem 0; }
+.field > div:has(input[type=checkbox]) { display: flex; flex-wrap: wrap; gap: .25rem 1rem; }
+.field > div:has(input[type=checkbox]) label { font-weight: 400; display: inline-flex; gap: .35rem; align-items: center; }
+.field .helptext, .field small.help { color: var(--muted); font-size: .85rem; }
+.field[hidden] { display: none; }

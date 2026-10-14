@@ -18,7 +18,7 @@ DESC = gen.DEFAULT_DESCRIPTION_PATTERN
 def card(user, make_card):
     return make_card(
         user, cost="3.00", player="Erling Haaland", set_name="Topps Chrome", year=2023,
-        card_number="15", variant="rookie", condition="Near Mint",
+        card_number="15", variants=["rookie"], condition="near_mint",
     )
 
 
@@ -40,7 +40,7 @@ def test_default_title(card):
 def test_missing_fields_leave_no_debris(card):
     card.card_number = ""
     card.condition = ""
-    card.variant = "base"
+    card.variants = []
     result = gen.generate(card, TITLE, DESC)
     assert result.title == "2023 Topps Chrome Erling Haaland"  # no stray '#' or spaces
     assert any("card number" in w and "condition" in w for w in result.warnings)
@@ -77,7 +77,8 @@ def test_title_exactly_at_limit_is_not_truncated(card):
 
 
 def test_title_over_limit_is_cut_at_word_boundary(card):
-    card.condition = "Near Mint centered sharp corners pack fresh straight from the box"
+    card.variants = ["rookie", "parallel"]
+    card.parallel_name = "Gold Refractor centered sharp corners pack fresh straight from the box"
     result = gen.generate(card, TITLE, DESC)
     assert len(result.full_title) > 80
     assert len(result.title) <= 80
@@ -118,7 +119,7 @@ def test_description_with_condition_notes_and_defects(card):
 
 
 def test_description_drops_empty_label_lines(card):
-    card.variant = "base"
+    card.variants = []
     card.notes = ""
     desc = gen.generate(card, TITLE, DESC).description
     assert "Variant:" not in desc

@@ -1,8 +1,10 @@
 import os
+import re
 import uuid
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Case, Count, F, Min, OuterRef, Q, Subquery, Sum, When
 from django.db.models.functions import Coalesce, TruncDate
@@ -17,11 +19,104 @@ class CardStatus(models.TextChoices):
 
 
 class Variant(models.TextChoices):
-    BASE = "base", "Base"
-    PARALLEL = "parallel", "Parallel"
+    """Card variants. A card can have several (e.g. a rookie auto); none means base.
+
+    The order here is the order they appear in titles ("Rookie Auto").
+    """
+
     ROOKIE = "rookie", "Rookie"
     AUTO = "auto", "Auto"
+    PARALLEL = "parallel", "Parallel"
     INSERT = "insert", "Insert"
+
+
+class Condition(models.TextChoices):
+    """Raw (ungraded) card condition, best first."""
+
+    MINT = "mint", "Mint"
+    NEAR_MINT = "near_mint", "Near Mint"
+    EXCELLENT = "excellent", "Excellent"
+    VERY_GOOD = "very_good", "Very Good"
+    GOOD = "good", "Good"
+    FAIR = "fair", "Fair"
+    POOR = "poor", "Poor"
+
+
+# Free-text conditions and common abbreviations, used by the CSV import and the
+# data migration. Keys are lower case without punctuation.
+CONDITION_ALIASES = {
+    "mint": Condition.MINT, "m": Condition.MINT, "mt": Condition.MINT, "gem mint": Condition.MINT,
+    "near mint": Condition.NEAR_MINT, "nm": Condition.NEAR_MINT, "nm mt": Condition.NEAR_MINT,
+    "near mint or better": Condition.NEAR_MINT,
+    "excellent": Condition.EXCELLENT, "ex": Condition.EXCELLENT, "ex mt": Condition.EXCELLENT,
+    "very good": Condition.VERY_GOOD, "vg": Condition.VERY_GOOD, "vg ex": Condition.VERY_GOOD,
+    "good": Condition.GOOD, "g": Condition.GOOD,
+    "fair": Condition.FAIR, "f": Condition.FAIR,
+    "poor": Condition.POOR, "p": Condition.POOR,
+}
+
+
+def parse_condition(value) -> str | None:
+    """Map free text such as 'NM-MT' or 'Near Mint' to a Condition; '' stays ''.
+
+    Returns None when the text cannot be recognised.
+    """
+    text = " ".join("".join(c if c.isalnum() else " " for c in str(value or "").lower()).split())
+    if not text:
+        return ""
+    if text.replace(" ", "_") in Condition.values:
+        return text.replace(" ", "_")
+    return CONDITION_ALIASES.get(text)
+
+
+SERIAL_RE = re.compile(r"^\s*(\d*)\s*/\s*(\d+)\s*$")
+
+
+def normalise_serial(value: str) -> str:
+    """'23 / 50' -> '23/50', ' /99' -> '/99'. Raises ValueError for anything else."""
+    if not (value or "").strip():
+        return ""
+    match = SERIAL_RE.match(value)
+    if not match or (match.group(1) and int(match.group(1)) > int(match.group(2))):
+        raise ValueError("Use the format 23/50, or /50 when you only know the print run.")
+    return f"{match.group(1)}/{match.group(2)}"
+
+
+def validate_serial(value):
+    try:
+        normalise_serial(value)
+    except ValueError as exc:
+        raise ValidationError(str(exc)) from None
+
+
+VARIANT_ORDER = [v.value for v in Variant]
+# Words that mean "no special variant" in imports and old data.
+BASE_WORDS = {"", "base"}
+
+
+def normalise_variants(values) -> list[str]:
+    """Lower-case, drop "base", remove duplicates and sort in the fixed order.
+
+    Raises ValueError for unknown variants, so bad data never ends up stored.
+    """
+    if values is None:
+        return []
+    if isinstance(values, str):
+        values = [values]
+    cleaned = {str(v).strip().lower() for v in values} - BASE_WORDS
+    unknown = sorted(cleaned - set(VARIANT_ORDER))
+    if unknown:
+        raise ValueError("Unknown variant(s): " + ", ".join(unknown))
+    return sorted(cleaned, key=VARIANT_ORDER.index)
+
+
+def validate_variants(value):
+    if not isinstance(value, list):
+        raise ValidationError("Variants must be a list.")
+    try:
+        normalise_variants(value)
+    except ValueError as exc:
+        raise ValidationError(str(exc)) from None
 
 
 class CardQuerySet(models.QuerySet):
@@ -106,10 +201,14 @@ class Card(models.Model):
     set_name = models.CharField("set", max_length=120)
     year = models.PositiveSmallIntegerField()
     card_number = models.CharField("card number", max_length=30, blank=True)
-    variant = models.CharField(
-        max_length=20, choices=Variant.choices, default=Variant.BASE
+    variants = models.JSONField(default=list, blank=True, validators=[validate_variants])
+    # Which parallel or insert it is, e.g. "Gold Refractor /50" or "Future Stars".
+    parallel_name = models.CharField("parallel", max_length=80, blank=True)
+    parallel_serial = models.CharField(
+        "serial number", max_length=20, blank=True, validators=[validate_serial]
     )
-    condition = models.CharField(max_length=60, blank=True)
+    insert_name = models.CharField("insert", max_length=80, blank=True)
+    condition = models.CharField(max_length=20, choices=Condition.choices, blank=True)
     notes = models.TextField(blank=True)
     status = models.CharField(
         max_length=20, choices=CardStatus.choices, default=CardStatus.IN_STOCK
@@ -131,6 +230,38 @@ class Card(models.Model):
     def __str__(self):
         number = f" #{self.card_number}" if self.card_number else ""
         return f"{self.year} {self.set_name} {self.player}{number}"
+
+    def save(self, *args, **kwargs):
+        self.variants = normalise_variants(self.variants)
+        # A name only means something while its variant is ticked.
+        if Variant.PARALLEL not in self.variants:
+            self.parallel_name = ""
+            self.parallel_serial = ""
+        else:
+            self.parallel_serial = normalise_serial(self.parallel_serial)
+        if Variant.INSERT not in self.variants:
+            self.insert_name = ""
+        super().save(*args, **kwargs)
+
+    def _names(self) -> dict[str, str]:
+        parallel = " ".join(p for p in (self.parallel_name.strip(), self.parallel_serial.strip()) if p)
+        return {Variant.PARALLEL: parallel, Variant.INSERT: self.insert_name.strip()}
+
+    @property
+    def variant_labels(self) -> list[str]:
+        """Labels for titles: the parallel/insert name when known, e.g. ['Rookie', 'Gold Refractor 23/50']."""
+        labels, names = dict(Variant.choices), self._names()
+        return [names.get(v) or labels[v] for v in normalise_variants(self.variants)]
+
+    @property
+    def variant_display(self) -> str:
+        """'Rookie, Parallel (Gold Refractor /50)', or 'Base' when there is no special variant."""
+        labels, names = dict(Variant.choices), self._names()
+        parts = []
+        for v in normalise_variants(self.variants):
+            name = names.get(v)
+            parts.append(f"{labels[v]} ({name})" if name else labels[v])
+        return ", ".join(parts) or "Base"
 
     @property
     def total_cost(self) -> Decimal:

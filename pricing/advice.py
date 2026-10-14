@@ -18,7 +18,7 @@ from django.conf import settings
 from ebay.client import EbayClient, EbayError, EbayNotConfigured, EbayRateLimited, EbayUnavailable
 from finance.calculator import CENT, CostInput, calculate
 from finance.models import DEFAULT_CATEGORY
-from inventory.models import Card, Variant
+from inventory.models import Card, Variant, normalise_variants
 from sales.models import Sale
 from sales.services import NoFeeProfile, fees_for
 
@@ -86,8 +86,16 @@ class Advice:
 
 def search_query(card: Card) -> str:
     parts = [str(card.year), card.set_name, card.player, card.card_number]
-    if card.variant != Variant.BASE:
-        parts.append(card.get_variant_display())
+    labels = dict(Variant.choices)
+    for variant in normalise_variants(card.variants):
+        if variant == Variant.PARALLEL:
+            # Search on the print run (/50), not the exact copy (23/50): eBay would find almost nothing.
+            run = card.parallel_serial.partition("/")[2]
+            parts += [card.parallel_name or labels[variant], f"/{run}" if run else ""]
+        elif variant == Variant.INSERT:
+            parts.append(card.insert_name or labels[variant])
+        else:
+            parts.append(labels[variant])
     return " ".join(p for p in parts if p).strip()
 
 

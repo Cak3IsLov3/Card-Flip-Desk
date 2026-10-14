@@ -22,13 +22,14 @@ from sales.services import register_sale
 DEMO_USERNAME = "demo"
 DEMO_PASSWORD = "demo-cards-2026"  # local only; never use in production
 
+# player, sport, set, year, number, variants, condition, cost
 CARDS = [
-    ("Erling Haaland", "Soccer", "Topps Chrome UCL", 2023, "15", "base", "Near Mint", "2.50"),
-    ("Jude Bellingham", "Soccer", "Topps Chrome UCL", 2023, "50", "parallel", "Near Mint", "6.00"),
-    ("Lamine Yamal", "Soccer", "Topps Chrome", 2024, "1", "rookie", "Mint", "12.00"),
-    ("Bukayo Saka", "Soccer", "Panini Prizm Premier League", 2022, "88", "base", "Excellent", "0.80"),
-    ("Victor Wembanyama", "Basketball", "Panini Prizm", 2023, "136", "rookie", "Near Mint", "25.00"),
-    ("Max Verstappen", "F1", "Topps Chrome F1", 2024, "1", "base", "Near Mint", "3.00"),
+    ("Erling Haaland", "Soccer", "Topps Chrome UCL", 2023, "15", [], "near_mint", "2.50"),
+    ("Jude Bellingham", "Soccer", "Topps Chrome UCL", 2023, "50", ["parallel"], "near_mint", "6.00"),
+    ("Lamine Yamal", "Soccer", "Topps Chrome", 2024, "1", ["rookie", "parallel"], "mint", "12.00"),
+    ("Bukayo Saka", "Soccer", "Panini Prizm Premier League", 2022, "88", [], "excellent", "0.80"),
+    ("Victor Wembanyama", "Basketball", "Panini Prizm", 2023, "136", ["rookie", "auto"], "near_mint", "25.00"),
+    ("Max Verstappen", "F1", "Topps Chrome F1", 2024, "1", [], "near_mint", "3.00"),
 ]
 
 
@@ -71,7 +72,7 @@ def card_image(card, side):
         draw.text((250, 625), f"{card.year} {card.set_name}", font=small, fill=light, anchor="mm")
     else:
         draw.text((250, 120), f"#{card.card_number or '-'}", font=big, fill="#222222", anchor="mm")
-        for i, line in enumerate([card.player, card.set_name, str(card.year), card.get_variant_display()]):
+        for i, line in enumerate([card.player, card.set_name, str(card.year), card.variant_display]):
             draw.text((250, 230 + i * 60), line, font=small, fill="#333333", anchor="mm")
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=88)
@@ -101,10 +102,10 @@ class Command(BaseCommand):
             valid_from=date(2024, 1, 1),
         )
         today = date.today()
-        for i, (player, sport, set_name, year, nr, variant, cond, cost) in enumerate(CARDS):
+        for i, (player, sport, set_name, year, nr, variants, cond, cost) in enumerate(CARDS):
             card = Card.objects.create(
                 owner=user, player=player, sport=sport, set_name=set_name, year=year,
-                card_number=nr, variant=variant, condition=cond,
+                card_number=nr, variants=variants, condition=cond,
                 status=CardStatus.FOR_SALE if i % 2 else CardStatus.IN_STOCK,
                 listed_since=today - timedelta(days=20 * i) if i % 2 else None,
             )
@@ -116,7 +117,11 @@ class Command(BaseCommand):
         # lowered), warning, and critical with a bundle opportunity.
         bellingham = Card.objects.get(owner=user, player="Jude Bellingham")
         bellingham.listed_since = today - timedelta(days=65)
+        bellingham.parallel_name = "Refractor"
         bellingham.save()
+        Card.objects.filter(owner=user, player="Lamine Yamal").update(
+            parallel_name="Gold Refractor", parallel_serial="23/50"
+        )
         Listing.objects.create(card=bellingham, title=str(bellingham), asking_price=D("7.99"),
                                status=ListingStatus.ACTIVE)
         verstappen = Card.objects.get(owner=user, player="Max Verstappen")
@@ -126,7 +131,7 @@ class Command(BaseCommand):
                                status=ListingStatus.ACTIVE)
         perez = Card.objects.create(
             owner=user, player="Sergio Pérez", sport="F1", set_name="Topps Chrome F1", year=2024,
-            card_number="11", condition="Near Mint",
+            card_number="11", condition="near_mint",
         )
         Purchase.objects.create(card=perez, price=D("1.50"), date=today - timedelta(days=120))
 
@@ -140,7 +145,7 @@ class Command(BaseCommand):
         for player, set_name, year, cost, listed_ago, sold_ago, price, country in SOLD:
             card = Card.objects.create(
                 owner=user, player=player, sport="Soccer", set_name=set_name, year=year,
-                variant="base", condition="Near Mint", status=CardStatus.FOR_SALE,
+                condition="near_mint", status=CardStatus.FOR_SALE,
                 listed_since=today - timedelta(days=listed_ago),
             )
             Purchase.objects.create(

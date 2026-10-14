@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from finance.calculator import ZERO
 from finance.models import DEFAULT_CATEGORY, FeeProfile
-from inventory.models import Card, CardPhoto, PhotoLabel, Purchase
+from inventory.models import Card, CardPhoto, PhotoLabel, Purchase, Variant, normalise_variants
 from sales.models import Listing, ListingStatus, ListingTemplate, Sale
 
 
@@ -64,6 +64,11 @@ class PhotoUploadSerializer(serializers.Serializer):
 
 
 class CardSerializer(serializers.ModelSerializer):
+    variants = serializers.ListField(
+        child=serializers.ChoiceField(choices=Variant.choices),
+        required=False,
+        help_text="Zero or more variants; an empty list means a base card.",
+    )
     total_cost = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     purchases = PurchaseSerializer(many=True, read_only=True)
     main_photo = serializers.SerializerMethodField()
@@ -71,11 +76,15 @@ class CardSerializer(serializers.ModelSerializer):
     class Meta:
         model = Card
         fields = [
-            "id", "player", "sport", "set_name", "year", "card_number", "variant", "condition",
+            "id", "player", "sport", "set_name", "year", "card_number", "variants", "parallel_name", "parallel_serial",
+            "insert_name", "condition",
             "notes", "status", "listed_since", "held_until", "total_cost", "purchases",
             "main_photo", "created_at", "updated_at",
         ]
         read_only_fields = ["created_at", "updated_at"]
+
+    def validate_variants(self, value):
+        return normalise_variants(value)
 
     def get_main_photo(self, card) -> int | None:
         main = next((p for p in card.photos.all() if p.is_main), None)
