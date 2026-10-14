@@ -191,6 +191,20 @@ class CardQuerySet(models.QuerySet):
             .order_by("-n", "set_name")
         )
 
+    def used_names(self, field, limit=50):
+        """Distinct non-empty values of a text field, most used first.
+
+        Spellings that differ only in case count as one name; the most used
+        spelling is kept ("Gold Refractor" over "gold refractor").
+        """
+        rows = self.exclude(**{field: ""}).values(field).annotate(n=Count("id")).order_by("-n", field)
+        names = {}
+        for row in rows:
+            name = row[field].strip()
+            if name and name.casefold() not in names:
+                names[name.casefold()] = name
+        return list(names.values())[:limit]
+
 
 class Card(models.Model):
     owner = models.ForeignKey(

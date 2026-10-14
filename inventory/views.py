@@ -93,7 +93,7 @@ def card_detail(request, pk):
 
 @login_required
 def card_create(request):
-    form = CardForm(request.POST or None)
+    form = CardForm(request.POST or None, user=request.user)
     purchase_form = PurchaseForm(request.POST or None, prefix="purchase")
     purchase_form.fields["price"].required = False
     purchase_form.fields["date"].required = False
@@ -119,7 +119,7 @@ def card_create(request):
 @login_required
 def card_update(request, pk):
     card = _own_card(request, pk)
-    form = CardForm(request.POST or None, instance=card)
+    form = CardForm(request.POST or None, instance=card, user=request.user)
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "Card updated.")

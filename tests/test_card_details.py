@@ -93,6 +93,40 @@ def test_card_form_validates_serial_and_shows_fields_for_parallel():
     assert 'data-show-with-variant="parallel"' in html
 
 
+# --- remembered parallel and insert names ------------------------------------
+
+def test_used_names_most_used_first_and_case_insensitive(user, other_user, make_card):
+    for name in ["Gold Refractor", "Gold Refractor", "gold refractor", "Prizm Silver"]:
+        make_card(user, variants=["parallel"], parallel_name=name)
+    make_card(user, variants=["insert"], insert_name="Future Stars")
+    make_card(other_user, variants=["parallel"], parallel_name="Someone Else's Parallel")
+    own = Card.objects.owned_by(user)
+    assert own.used_names("parallel_name") == ["Gold Refractor", "Prizm Silver"]
+    assert own.used_names("insert_name") == ["Future Stars"]
+
+
+def test_card_form_suggests_only_own_earlier_names(user, other_user, make_card, client_for):
+    make_card(user, variants=["parallel"], parallel_name="Gold Refractor")
+    make_card(user, variants=["insert"], insert_name="Future Stars")
+    make_card(other_user, variants=["parallel"], parallel_name="Secret <b>Parallel</b>")
+    html = client_for(user).get(reverse("inventory:card_create")).content.decode()
+    assert 'list="id_parallel_name-suggestions"' in html
+    assert '<datalist id="id_parallel_name-suggestions"><option value="Gold Refractor"></datalist>' in html
+    assert '<option value="Future Stars">' in html
+    assert "Secret" not in html
+
+
+def test_card_form_without_earlier_names_has_no_datalist(user, client_for):
+    html = client_for(user).get(reverse("inventory:card_create")).content.decode()
+    assert "<datalist" not in html
+
+
+def test_suggestions_are_escaped(user, make_card):
+    make_card(user, variants=["parallel"], parallel_name='Red "Wave" <i>')
+    html = str(CardForm(user=user)["parallel_name"])
+    assert '<option value="Red &quot;Wave&quot; &lt;i&gt;">' in html
+
+
 # --- condition ---------------------------------------------------------------
 
 @pytest.mark.parametrize(

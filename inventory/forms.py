@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django import forms
 from django.utils import timezone
+from django.utils.html import format_html, format_html_join
 
 from .csv_import import IMPORT_FIELDS, REQUIRED_FIELDS
 from .models import Card, CardStatus, Condition, PhotoLabel, Purchase, StaleThreshold, Variant
@@ -9,6 +10,24 @@ from .models import Card, CardStatus, Condition, PhotoLabel, Purchase, StaleThre
 
 class DateInput(forms.DateInput):
     input_type = "date"
+
+
+class SuggestionInput(forms.TextInput):
+    """Text input with a <datalist> of earlier values; typing something new still works."""
+
+    def __init__(self, attrs=None, suggestions=()):
+        super().__init__(attrs)
+        self.suggestions = list(suggestions)
+
+    def render(self, name, value, attrs=None, renderer=None):
+        if not self.suggestions:
+            return super().render(name, value, attrs, renderer)
+        list_id = f"{(attrs or {}).get('id') or name}-suggestions"
+        attrs = {**(attrs or {}), "list": list_id}
+        options = format_html_join("", '<option value="{}">', ((s,) for s in self.suggestions))
+        return format_html(
+            '{}<datalist id="{}">{}</datalist>', super().render(name, value, attrs, renderer), list_id, options
+        )
 
 
 class VariantField(forms.MultipleChoiceField):
@@ -37,25 +56,30 @@ class CardForm(forms.ModelForm):
             "insert_name": "Which insert?",
         }
         help_texts = {
-            "parallel_name": "Optional, e.g. Gold Refractor. Used in the listing title.",
+            "parallel_name": "Optional, e.g. Gold Refractor. Names you used before are suggested.",
             "parallel_serial": "Optional, for numbered parallels: 23/50, or /50 if you only know the print run.",
-            "insert_name": "Optional, e.g. Future Stars. Used in the listing title.",
+            "insert_name": "Optional, e.g. Future Stars. Names you used before are suggested.",
         }
         widgets = {
             "listed_since": DateInput,
             "held_until": DateInput,
             "notes": forms.Textarea(attrs={"rows": 3}),
             # card_form.js shows these only while the matching variant is ticked.
-            "parallel_name": forms.TextInput(attrs={"data-show-with-variant": "parallel"}),
+            "parallel_name": SuggestionInput(attrs={"data-show-with-variant": "parallel"}),
             "parallel_serial": forms.TextInput(
                 attrs={"data-show-with-variant": "parallel", "placeholder": "23/50", "inputmode": "numeric"}
             ),
-            "insert_name": forms.TextInput(attrs={"data-show-with-variant": "insert"}),
+            "insert_name": SuggestionInput(attrs={"data-show-with-variant": "insert"}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["condition"].choices = [("", "Not specified"), *Condition.choices]
+        if user is not None:
+            # Remember parallel and insert names: suggest the ones this user typed before.
+            own_cards = Card.objects.owned_by(user)
+            for field in ("parallel_name", "insert_name"):
+                self.fields[field].widget.suggestions = own_cards.used_names(field)
 
     def clean(self):
         cleaned = super().clean()
