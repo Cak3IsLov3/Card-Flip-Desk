@@ -1,0 +1,66 @@
+# Card Flip Desk with PostgreSQL.
+#
+#   cp .env.example .env      # then fill in the two secrets
+#   docker compose up -d --build
+#   open http://localhost:8000
+#
+# Secrets come from .env (never commit it). Compose refuses to start without them.
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cardflipdesk
+      POSTGRES_USER: cardflipdesk
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cardflipdesk}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cardflipdesk -d cardflipdesk"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      RUN_MIGRATIONS: "1"
+      DATABASE_URL: postgres://cardflipdesk:${POSTGRES_PASSWORD:-cardflipdesk}@db:5432/cardflipdesk
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env (see .env.example)}
+      TOKEN_ENCRYPTION_KEYS: ${TOKEN_ENCRYPTION_KEYS:?Set TOKEN_ENCRYPTION_KEYS in .env (see .env.example)}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-http://localhost:8000,http://127.0.0.1:8000}
+      DJANGO_HTTPS: ${DJANGO_HTTPS:-0}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-1}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      SITE_URL: ${SITE_URL:-http://localhost:8000}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-Card Flip Desk <noreply@localhost>}
+      EBAY_ENVIRONMENT: ${EBAY_ENVIRONMENT:-sandbox}
+      EBAY_CLIENT_ID: ${EBAY_CLIENT_ID:-}
+      EBAY_CLIENT_SECRET: ${EBAY_CLIENT_SECRET:-}
+      EBAY_RUNAME: ${EBAY_RUNAME:-}
+      EBAY_MARKETPLACE_ID: ${EBAY_MARKETPLACE_ID:-EBAY_NL}
+      EBAY_CURRENCY: ${EBAY_CURRENCY:-EUR}
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    volumes:
+      # Photos survive rebuilds; they are never served as public files.
+      - media:/data/private_media
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+volumes:
+  pgdata:
+  media:

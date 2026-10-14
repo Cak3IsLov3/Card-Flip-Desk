@@ -29,6 +29,7 @@ when eBay goes down.
 
 - [Features](#features)
 - [Quick start](#quick-start)
+- [Docker](#docker)
 - [Architecture](#architecture)
 - [Business rules](#business-rules)
 - [Security](#security)
@@ -73,6 +74,47 @@ refuses to run without `DEBUG`. You can also create your own account via
 
 Without eBay keys everything works except the active listings in the price
 advice. See [Configuration](#configuration).
+
+## Docker
+
+[`compose.yaml`](compose.yaml) runs the app with PostgreSQL 17. The image
+([`Dockerfile`](Dockerfile)) uses gunicorn, serves static files with WhiteNoise,
+runs as a non-root user and applies migrations on start.
+
+```bash
+cp .env.example .env
+```
+
+Fill in `DJANGO_SECRET_KEY`, `TOKEN_ENCRYPTION_KEYS` and `POSTGRES_PASSWORD` in
+`.env` (the commands to generate them are in the file). Compose refuses to start
+without the first two. `.env` is in `.gitignore`.
+
+```bash
+docker compose up -d --build
+```
+
+```bash
+docker compose exec web python manage.py createsuperuser
+```
+
+Open <http://localhost:8000> and sign up or log in. Useful commands:
+
+| What | Command |
+|---|---|
+| Logs (also emails, without SMTP) | `docker compose logs -f web` |
+| Weekly digest (run from cron) | `docker compose run --rm web python manage.py send_stale_digest` |
+| Database backup | `docker compose exec db pg_dump -U cardflipdesk cardflipdesk > backup.sql` |
+| Stop, keep data | `docker compose down` |
+| Stop and delete all data | `docker compose down -v` |
+
+- **Data** lives in two named volumes: `pgdata` (database) and `media` (photos).
+  Photos are never served as public files; they go through the app's access check.
+- **HTTPS:** put the container behind a TLS proxy (Caddy, Traefik, nginx), set
+  `DJANGO_HTTPS=1` and use `https://` in `DJANGO_CSRF_TRUSTED_ORIGINS` and
+  `SITE_URL`. That turns on the HTTPS redirect, secure cookies and HSTS.
+- **Health:** `/health/` checks the database and is used by the container
+  healthcheck.
+- `seed_demo` refuses to run in the container, because `DEBUG` is off.
 
 ## Architecture
 
@@ -370,10 +412,18 @@ development.
 | `DJANGO_SECRET_KEY` | dev value | **Always set outside local development** |
 | `DJANGO_DEBUG` | `1` | `0` in production |
 | `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | empty | Comma-separated, with scheme: `https://cards.example.com` |
+| `DJANGO_HTTPS` | `0` | `1` behind a TLS proxy: HTTPS redirect, secure cookies, HSTS |
+| `DJANGO_HSTS_SECONDS` | `3600` | HSTS duration with `DJANGO_HTTPS=1`; raise it once HTTPS works everywhere |
+| `DATABASE_URL` | empty (SQLite) | `postgres://user:password@host:5432/name` |
 | `TOKEN_ENCRYPTION_KEYS` | derived in DEBUG | Fernet key(s); the first one encrypts. Create one: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
 | `PRIVATE_MEDIA_ROOT` | `private_media/` | Folder for photos (do not serve it publicly) |
 | `SITE_URL` | `http://localhost:8000` | For links in emails |
-| `DEFAULT_FROM_EMAIL` | `noreply@localhost` | Sender; configure an SMTP backend in `MAILERS` for real email |
+| `DEFAULT_FROM_EMAIL` | `noreply@localhost` | Sender |
+| `EMAIL_HOST` | empty | SMTP server; without it emails are printed to the console/log |
+| `EMAIL_PORT`, `EMAIL_USE_TLS` | `587`, `1` | SMTP port and STARTTLS |
+| `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` | empty | SMTP login |
+| `DJANGO_LOG_LEVEL` | `INFO` | Console log level |
 | `EBAY_ENVIRONMENT` | `sandbox` | `sandbox` or `production` |
 | `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET` | empty | From *Application Keys* on developer.ebay.com |
 | `EBAY_RUNAME` | empty | Only for connecting a user account; accept URL = `SITE_URL` + `/ebay/callback/` |
@@ -397,6 +447,10 @@ development.
 - **Tests:** on Python 3.12 and 3.14, `manage.py check`, a check that no
   migrations are missing, OpenAPI schema validation (warnings fail the build)
   and the full pytest suite.
+- **PostgreSQL:** all migrations and the full suite against PostgreSQL 17.
+- **Docker:** builds the image, starts Compose with throwaway secrets, waits for
+  the healthchecks, fetches `/health/`, the login page and a static file, and
+  runs `check --deploy`.
 
 274 tests, without a network (eBay is mocked with respx), in about a minute
 and a half. A selection:

@@ -7,19 +7,47 @@ meant for local development.
 
 import os
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _env_bool(name, default="0"):
+    return os.environ.get(name, default) == "1"
+
+
+def _env_list(name, default=""):
+    return [item.strip() for item in os.environ.get(name, default).split(",") if item.strip()]
+
+
+def _database_from_url(url):
+    """postgres://user:pass@host:5432/name or sqlite:///path/to/db.sqlite3"""
+    parsed = urlparse(url)
+    if parsed.scheme in ("postgres", "postgresql"):
+        return {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": parsed.path.lstrip("/"),
+            "USER": unquote(parsed.username or ""),
+            "PASSWORD": unquote(parsed.password or ""),
+            "HOST": parsed.hostname or "",
+            "PORT": str(parsed.port or ""),
+            "CONN_MAX_AGE": 60,
+            "CONN_HEALTH_CHECKS": True,
+        }
+    if parsed.scheme == "sqlite":
+        return {"ENGINE": "django.db.backends.sqlite3", "NAME": parsed.path.lstrip("/") or BASE_DIR / "db.sqlite3"}
+    raise ValueError(f"Unsupported DATABASE_URL scheme: {parsed.scheme!r}")
 
 SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",
     "django-insecure-dev-only-change-me",
 )
 
-DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
+DEBUG = _env_bool("DJANGO_DEBUG", "1")
 
-ALLOWED_HOSTS = [
-    h for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h
-]
+ALLOWED_HOSTS = _env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
+# Needed for forms when the site is reached via another origin, e.g. https://cards.example.com
+CSRF_TRUSTED_ORIGINS = _env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 
 
 INSTALLED_APPS = [
@@ -44,6 +72,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Serves the collected static files in production (Docker), right after SecurityMiddleware.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -73,11 +103,11 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 
+# SQLite by default; set DATABASE_URL for PostgreSQL (Docker Compose does this).
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
+    "default": _database_from_url(os.environ["DATABASE_URL"])
+    if os.environ.get("DATABASE_URL")
+    else {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}
 }
 
 
@@ -101,6 +131,7 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+STATIC_ROOT = Path(os.environ.get("DJANGO_STATIC_ROOT", BASE_DIR / "staticfiles"))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -112,7 +143,12 @@ PRIVATE_MEDIA_ROOT = Path(os.environ.get("PRIVATE_MEDIA_ROOT", BASE_DIR / "priva
 
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
-    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    # Hashed, compressed file names in Docker (needs collectstatic); plain storage elsewhere.
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
+        if _env_bool("DJANGO_STATIC_MANIFEST")
+        else "django.contrib.staticfiles.storage.StaticFilesStorage"
+    },
     "photos": {"BACKEND": "inventory.storage.PrivatePhotoStorage"},
 }
 
@@ -127,11 +163,22 @@ PHOTOS_PER_CARD = 6
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Card Flip Desk <noreply@localhost>")
 
-MAILERS = {
-    "default": {
-        "BACKEND": "django.core.mail.backends.console.EmailBackend",
-    },
-}
+# SMTP when EMAIL_HOST is set; otherwise emails are printed to the console/log.
+if os.environ.get("EMAIL_HOST"):
+    MAILERS = {
+        "default": {
+            "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+            "OPTIONS": {
+                "host": os.environ["EMAIL_HOST"],
+                "port": int(os.environ.get("EMAIL_PORT", "587")),
+                "username": os.environ.get("EMAIL_HOST_USER", ""),
+                "password": os.environ.get("EMAIL_HOST_PASSWORD", ""),
+                "use_tls": _env_bool("EMAIL_USE_TLS", "1"),
+            },
+        },
+    }
+else:
+    MAILERS = {"default": {"BACKEND": "django.core.mail.backends.console.EmailBackend"}}
 
 
 # eBay. Without EBAY_CLIENT_ID/SECRET the app works fine, just without active
@@ -154,6 +201,27 @@ EBAY_CACHE_SECONDS = int(os.environ.get("EBAY_CACHE_SECONDS", str(6 * 3600)))
 # one encrypts, the others can still decrypt: that is how you rotate keys).
 # Create one with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 TOKEN_ENCRYPTION_KEYS = [k for k in os.environ.get("TOKEN_ENCRYPTION_KEYS", "").split(",") if k]
+
+
+# Production hardening. Set DJANGO_HTTPS=1 when the site runs behind a TLS proxy.
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+if _env_bool("DJANGO_HTTPS"):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = True
+    # Start low; raise once HTTPS is known to work everywhere (HSTS is hard to undo).
+    SECURE_HSTS_SECONDS = int(os.environ.get("DJANGO_HSTS_SECONDS", "3600"))
+# Health checks come from inside the container over plain HTTP.
+SECURE_REDIRECT_EXEMPT = [r"^health/$"]
+
+# Log to stdout, so `docker compose logs` shows errors.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "root": {"handlers": ["console"], "level": os.environ.get("DJANGO_LOG_LEVEL", "INFO")},
+}
 
 
 REST_FRAMEWORK = {

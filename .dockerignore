@@ -1,0 +1,16 @@
+.git
+.github
+.venv
+.claude
+.env
+.env.*
+!.env.example
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+db.sqlite3
+private_media
+staticfiles
+docs
+tests

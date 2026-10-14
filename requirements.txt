@@ -5,3 +5,7 @@ django-htmx==1.29.0
 Pillow==12.3.0
 httpx==0.28.1
 cryptography==50.0.2
+# Production / Docker
+gunicorn==26.2.0
+whitenoise==6.12.0
+psycopg[binary]==3.3.6
