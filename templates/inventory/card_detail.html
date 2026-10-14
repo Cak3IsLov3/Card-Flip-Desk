@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}{{ card }} – Card Flip Desk{% endblock %}
+{% block content %}
+<h1>{{ card }}</h1>
+<div class="actions">
+  <a class="button secondary" href="{% url 'inventory:card_update' card.pk %}">Bewerken</a>
+  <a class="button secondary" href="{% url 'finance:calculator' %}?card={{ card.pk }}">Calculator</a>
+  {% if card.status != "sold" %}<a class="button" href="{% url 'sales:sale_create' card.pk %}">Verkoop registreren</a>{% endif %}
+  <a class="button secondary" href="{% url 'inventory:card_delete' card.pk %}">Verwijderen</a>
+</div>
+
+<div class="grid">
+  <section class="panel">
+    <h2>Gegevens</h2>
+    <dl class="kv">
+      <dt>Speler</dt><dd>{{ card.player }}</dd>
+      <dt>Sport</dt><dd>{{ card.sport|default:"–" }}</dd>
+      <dt>Set</dt><dd>{{ card.set_name }} ({{ card.year }})</dd>
+      <dt>Nummer</dt><dd>{{ card.card_number|default:"–" }}</dd>
+      <dt>Variant</dt><dd>{{ card.get_variant_display }}</dd>
+      <dt>Conditie</dt><dd>{{ card.condition|default:"–" }}</dd>
+      <dt>Status</dt><dd><span class="badge badge-{{ card.status }}">{{ card.get_status_display }}</span></dd>
+      <dt>Te koop sinds</dt><dd>{{ card.listed_since|date:"d-m-Y"|default:"–" }}</dd>
+    </dl>
+    {% if card.notes %}<p>{{ card.notes|linebreaksbr }}</p>{% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Inkoop</h2>
+    <table>
+      <thead><tr><th>Datum</th><th>Bron</th><th class="num">Prijs</th><th class="num">Verzending</th></tr></thead>
+      <tbody>
+      {% for p in purchases %}
+        <tr><td>{{ p.date|date:"d-m-Y" }}</td><td>{{ p.source|default:"–" }}</td><td class="num">{{ p.price|euro }}</td><td class="num">{{ p.shipping_in|euro }}</td></tr>
+      {% empty %}<tr><td colspan="4" class="muted">Nog geen inkoop vastgelegd.</td></tr>{% endfor %}
+      </tbody>
+      <tfoot><tr><th colspan="3">Totaal</th><th class="num">{{ card.total_cost|euro }}</th></tr></tfoot>
+    </table>
+    <details><summary>Inkoop toevoegen</summary>
+      <form method="post" action="{% url 'inventory:purchase_add' card.pk %}">{% csrf_token %}
+        {% include "_form_fields.html" with form=purchase_form %}
+        <button>Opslaan</button>
+      </form>
+    </details>
+  </section>
+
+  {% if sale %}
+  <section class="panel">
+    <h2>Verkoop</h2>
+    <dl class="kv">
+      <dt>Verkocht op</dt><dd>{{ sale.sold_at|date:"d-m-Y" }}</dd>
+      <dt>Verkoopprijs</dt><dd>{{ sale.sale_price|euro }}</dd>
+      <dt>Verzendopbrengst</dt><dd>{{ sale.shipping_income|euro }}</dd>
+      <dt>eBay-commissie</dt><dd>-{{ sale.ebay_commission|euro }}</dd>
+      <dt>Betaalkosten</dt><dd>-{{ sale.payment_fee|euro }}</dd>
+      <dt>Verzendkosten</dt><dd>-{{ sale.shipping_cost|euro }}</dd>
+      <dt>Verpakking</dt><dd>-{{ sale.packaging_cost|euro }}</dd>
+      <dt>Netto</dt><dd>{{ sale.net_proceeds|euro }}</dd>
+      <dt>Inkoop</dt><dd>-{{ card.total_cost|euro }}</dd>
+      <dt><strong>Winst</strong></dt><dd><strong class="{% if profit < 0 %}bad{% else %}good{% endif %}">{{ profit|euro }}</strong></dd>
+    </dl>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

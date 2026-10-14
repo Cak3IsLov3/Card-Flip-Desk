@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Kolommen koppelen – Card Flip Desk{% endblock %}
+{% block content %}
+<h1>Kolommen koppelen</h1>
+<section class="panel">
+  <h2>Voorbeeld</h2>
+  <pre class="preview">{% for line in preview %}{{ line }}
+{% endfor %}</pre>
+</section>
+<form method="post" class="panel">{% csrf_token %}
+  <div class="grid">{% include "_form_fields.html" %}</div>
+  <button>Importeren</button>
+  <a href="{% url 'inventory:csv_upload' %}">Ander bestand</a>
+</form>
+{% endblock %}

@@ -1,0 +1,56 @@
+:root {
+  --bg: #f6f7f9; --panel: #fff; --text: #1d2330; --muted: #667085; --line: #e3e6eb;
+  --accent: #2459d6; --good: #1a7f4b; --bad: #c0392b; --warn: #b7791f;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #14171c; --panel: #1c2027; --text: #e7e9ee; --muted: #9aa3b2; --line: #2c323c;
+          --accent: #6d97ff; --good: #4fc788; --bad: #ff7a6b; --warn: #f0b552; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.topbar { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between;
+          padding: .75rem 1rem; background: var(--panel); border-bottom: 1px solid var(--line); }
+.topbar nav { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+.brand { font-weight: 700; color: var(--text); }
+main { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+h1 { font-size: 1.5rem; margin: .5rem 0 1rem; }
+h2 { font-size: 1.15rem; margin: 1.5rem 0 .5rem; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+.narrow { max-width: 420px; }
+.grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.stats { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 1rem; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: .75rem; }
+.stat .label { color: var(--muted); font-size: .85rem; }
+.stat .value { font-size: 1.3rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; background: var(--panel); }
+th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: .85rem; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.field { margin-bottom: .75rem; display: flex; flex-direction: column; gap: .25rem; }
+.field label { font-weight: 500; font-size: .9rem; }
+input, select, textarea { font: inherit; padding: .45rem .55rem; border: 1px solid var(--line); border-radius: 6px;
+                          background: var(--panel); color: var(--text); max-width: 100%; }
+.field ul { list-style: none; padding: 0; margin: 0; display: flex; gap: 1rem; flex-wrap: wrap; }
+button, .button { font: inherit; background: var(--accent); color: #fff; border: 0; border-radius: 6px;
+                  padding: .5rem .9rem; cursor: pointer; display: inline-block; }
+button.secondary, .button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+button.danger { background: var(--bad); }
+button.link { background: none; color: var(--accent); padding: 0; }
+form.inline { display: inline; }
+.filters { display: flex; flex-wrap: wrap; gap: .5rem; align-items: end; margin-bottom: 1rem; }
+.filters .field { margin: 0; }
+.actions { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin: 1rem 0; }
+.msg { padding: .6rem .8rem; border-radius: 6px; margin-bottom: .75rem; border: 1px solid var(--line); background: var(--panel); }
+.msg-success { border-color: var(--good); } .msg-error { border-color: var(--bad); } .msg-warning { border-color: var(--warn); }
+.error { color: var(--bad); }
+.good { color: var(--good); } .bad { color: var(--bad); } .muted { color: var(--muted); }
+.badge { font-size: .8rem; padding: .1rem .45rem; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; }
+.badge-for_sale { border-color: var(--accent); color: var(--accent); }
+.badge-sold { border-color: var(--good); color: var(--good); }
+dl.kv { display: grid; grid-template-columns: max-content 1fr; gap: .3rem 1rem; margin: 0; }
+dl.kv dt { color: var(--muted); }
+dl.kv dd { margin: 0; font-variant-numeric: tabular-nums; }
+pre.preview { overflow-x: auto; background: var(--bg); padding: .5rem; border-radius: 6px; font-size: .85rem; }

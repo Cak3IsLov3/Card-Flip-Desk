@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Kaart verwijderen – Card Flip Desk{% endblock %}
+{% block content %}
+<h1>Kaart verwijderen</h1>
+<p>Weet je zeker dat je <strong>{{ card }}</strong> wilt verwijderen? Inkopen, listings en verkopen gaan mee.</p>
+<form method="post">{% csrf_token %}
+  <button class="danger">Verwijderen</button>
+  <a href="{% url 'inventory:card_detail' card.pk %}">Annuleren</a>
+</form>
+{% endblock %}

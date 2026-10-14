@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Calculator – Card Flip Desk{% endblock %}
+{% block content %}
+<h1>Kosten- en winstcalculator</h1>
+{% if not has_profiles %}
+  <div class="msg msg-warning">Je hebt nog geen kostenprofiel. <a href="{% url 'finance:fee_profiles' %}">Maak er eerst een aan</a>.</div>
+{% else %}
+<div class="grid">
+  <form method="post" class="panel" hx-post="{% url 'finance:calculator' %}" hx-target="#calc-result"
+        hx-trigger="input delay:250ms, change">{% csrf_token %}
+    {% include "_form_fields.html" %}
+    <noscript><button>Berekenen</button></noscript>
+  </form>
+  <div id="calc-result">{% include "finance/_calculator_result.html" %}</div>
+</div>
+{% endif %}
+{% endblock %}

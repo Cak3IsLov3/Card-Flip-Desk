@@ -1,0 +1,24 @@
+{% load money %}
+<div class="table-wrap"><table>
+  <thead><tr><th>Kaart</th><th>Variant</th><th>Conditie</th><th>Status</th><th class="num">Inkoop</th></tr></thead>
+  <tbody>
+  {% for card in page %}
+    <tr>
+      <td><a href="{% url 'inventory:card_detail' card.pk %}">{{ card }}</a></td>
+      <td>{{ card.get_variant_display }}</td>
+      <td>{{ card.condition|default:"–" }}</td>
+      <td><span class="badge badge-{{ card.status }}">{{ card.get_status_display }}</span></td>
+      <td class="num">{{ card.cost_total|euro }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="5" class="muted">Geen kaarten gevonden.</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% if page.has_other_pages %}
+<div class="actions">
+  {% if page.has_previous %}<a href="?{{ querystring_without_page }}page={{ page.previous_page_number }}">← Vorige</a>{% endif %}
+  <span class="muted">Pagina {{ page.number }} van {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a href="?{{ querystring_without_page }}page={{ page.next_page_number }}">Volgende →</a>{% endif %}
+</div>
+{% endif %}

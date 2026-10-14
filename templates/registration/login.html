@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Inloggen – Card Flip Desk{% endblock %}
+{% block content %}
+<section class="narrow">
+  <h1>Inloggen</h1>
+  <form method="post">{% csrf_token %}
+    {% include "_form_fields.html" %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <button>Inloggen</button>
+  </form>
+  <p>Nog geen account? <a href="{% url 'signup' %}">Registreren</a></p>
+</section>
+{% endblock %}

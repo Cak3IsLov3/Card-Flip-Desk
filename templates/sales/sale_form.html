@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Verkoop registreren – Card Flip Desk{% endblock %}
+{% block content %}
+<h1>Verkoop registreren: {{ card }}</h1>
+<form method="post" class="panel narrow">{% csrf_token %}
+  <p class="muted">Commissie en betaalkosten worden berekend met het kostenprofiel dat op de verkoopdatum gold.</p>
+  {% include "_form_fields.html" %}
+  <div class="actions"><button>Opslaan</button>
+    <a href="{% url 'inventory:card_detail' card.pk %}">Annuleren</a></div>
+</form>
+{% endblock %}

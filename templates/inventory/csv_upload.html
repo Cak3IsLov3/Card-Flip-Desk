@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}CSV importeren – Card Flip Desk{% endblock %}
+{% block content %}
+<h1>Kaarten importeren uit CSV</h1>
+<section class="panel narrow">
+  <p class="muted">Komma, puntkomma of tab als scheidingsteken. De eerste regel moet kolomnamen bevatten; daarna koppel je de kolommen aan velden.</p>
+  <form method="post" enctype="multipart/form-data">{% csrf_token %}
+    {% include "_form_fields.html" %}
+    <button>Volgende: kolommen koppelen</button>
+  </form>
+</section>
+{% endblock %}

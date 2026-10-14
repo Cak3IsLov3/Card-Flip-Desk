@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Kostenprofiel bewerken – Card Flip Desk{% endblock %}
+{% block content %}
+<h1>{{ profile }}</h1>
+<form method="post" class="panel narrow">{% csrf_token %}
+  {% include "_form_fields.html" %}
+  <div class="actions">
+    <button>Opslaan</button>
+    <button class="danger" name="delete" value="1" formnovalidate>Verwijderen</button>
+    <a href="{% url 'finance:fee_profiles' %}">Terug</a>
+  </div>
+</form>
+{% endblock %}
