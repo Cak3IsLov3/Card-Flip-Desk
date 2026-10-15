@@ -4,6 +4,8 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
+from config.env_checks import env_problems
+
 from . import oauth
 from .client import EbayClient, EbayError, EbayNotConfigured
 from .models import OAuthToken
@@ -23,6 +25,7 @@ def connection(request):
             "calls_today": client.calls_today(),
             "budget": settings.EBAY_DAILY_CALL_BUDGET,
             "marketplace": settings.EBAY_MARKETPLACE_ID,
+            "env_problems": env_problems(),
         },
     )
 

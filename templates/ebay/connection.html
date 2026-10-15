@@ -2,6 +2,12 @@
 {% block title %}eBay connection – Card Flip Desk{% endblock %}
 {% block content %}
 <h1>eBay connection</h1>
+{% if env_problems %}
+<div class="msg msg-warning">
+  <strong>Check your settings:</strong>
+  <ul>{% for problem in env_problems %}<li>{{ problem }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
 <div class="grid">
   <section class="panel">
     <h2>Price advice (Browse API)</h2>
