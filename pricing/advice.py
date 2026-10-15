@@ -124,13 +124,17 @@ def search_query(card: Card) -> str:
     return " ".join(p for p in parts if p).strip()
 
 
+def ebay_site() -> str:
+    """Host of the eBay site for the configured marketplace, e.g. www.ebay.de."""
+    return MARKETPLACE_SITES.get(settings.EBAY_MARKETPLACE_ID, "www.ebay.de")
+
+
 def sold_search_url(query: str) -> str:
     """eBay's own search for this card with the "sold items" filter, on the configured marketplace.
 
     Opened in the user's browser: the app itself never fetches eBay pages.
     """
-    site = MARKETPLACE_SITES.get(settings.EBAY_MARKETPLACE_ID, "www.ebay.de")
-    return f"https://{site}/sch/i.html?" + urlencode({"_nkw": query, "LH_Sold": "1", "LH_Complete": "1"})
+    return f"https://{ebay_site()}/sch/i.html?" + urlencode({"_nkw": query, "LH_Sold": "1", "LH_Complete": "1"})
 
 
 def _parse_price(token: str) -> Decimal | None:

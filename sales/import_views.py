@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 
 from inventory import csv_import
+from pricing.advice import ebay_site
 
 from . import seller_hub
 from .forms import SellerHubMappingForm, SellerHubOptionsForm, SellerHubUploadForm
@@ -27,7 +28,12 @@ def seller_hub_upload(request):
                 request.session[CONTENT_KEY] = content
                 request.session.pop(MAPPING_KEY, None)
                 return redirect("sales:seller_hub_map")
-    return render(request, "sales/seller_hub_upload.html", {"form": form})
+    site = ebay_site()
+    return render(request, "sales/seller_hub_upload.html", {
+        "form": form,
+        "orders_url": f"https://{site}/sh/ord",
+        "downloads_url": f"https://{site}/sh/reports/downloads",
+    })
 
 
 @login_required

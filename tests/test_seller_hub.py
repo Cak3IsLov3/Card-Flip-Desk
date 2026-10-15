@@ -227,6 +227,13 @@ def test_review_lists_only_own_unsold_cards(user, other_user, make_card, cards, 
     assert "Hidden Person" not in html
 
 
+def test_upload_page_links_to_seller_hub_on_the_marketplace(user, client_for, settings):
+    settings.EBAY_MARKETPLACE_ID = "EBAY_DE"
+    html = client_for(user).get(reverse("sales:seller_hub_upload")).content.decode()
+    assert 'href="https://www.ebay.de/sh/ord" target="_blank" rel="noopener noreferrer"' in html
+    assert 'href="https://www.ebay.de/sh/reports/downloads"' in html
+
+
 def test_steps_without_an_upload_go_back_to_the_start(user, client_for):
     client = client_for(user)
     for name in ("sales:seller_hub_map", "sales:seller_hub_review"):
