@@ -407,6 +407,7 @@ schtasks /Create /SC WEEKLY /D MON /ST 08:00 /TN "Card Flip Desk digest" /TR "\"
 | Serving photos | Stored outside the public folder; `storage.url()` fails on purpose. Served through a view that checks ownership, with `Cache-Control: private`. Files are only deleted after a successful commit. |
 | Tokens | eBay tokens are stored encrypted (Fernet, key rotation with `MultiFernet`). Outside `DEBUG` the app refuses to store them without a key. The OAuth `state` is kept in the session, compared in constant time and used only once. |
 | External data | eBay titles are escaped, amounts are read as `Decimal`, and links are only allowed to https eBay domains (`evil-ebay.attacker.com` and `javascript:` are dropped). |
+| eBay user data | Browse API responses are trimmed to an allow-list (title, price, link, condition, image, total) **before** they are cached, so seller names, locations and any new fields eBay adds are never stored. Price snapshots hold only aggregates. This is what the exemption from eBay's Marketplace Account Deletion notifications relies on. |
 | Other | CSRF on every form and HTMX request. Redirects back (`next`) only go to our own host. Token requests through the API are limited to 10 per minute. Secrets live in environment variables. |
 
 ## eBay integration

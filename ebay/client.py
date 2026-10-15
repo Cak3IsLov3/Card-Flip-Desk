@@ -196,7 +196,8 @@ class EbayClient:
 
     # --- GET with cache and ETag -------------------------------------------
 
-    def get_json(self, path: str, params: dict, *, ttl_seconds: int | None = None) -> ApiResult:
+    def get_json(self, path: str, params: dict, *, ttl_seconds: int | None = None, keep=None) -> ApiResult:
+        """GET with cache. `keep` trims the response before it is stored or returned."""
         ttl = timedelta(seconds=settings.EBAY_CACHE_SECONDS if ttl_seconds is None else ttl_seconds)
         key = hashlib.sha256(
             json.dumps({"env": self.environment, "mp": settings.EBAY_MARKETPLACE_ID, **params}, sort_keys=True).encode()
@@ -221,6 +222,8 @@ class EbayClient:
             raise EbayAPIError(response.status_code, response.text)
 
         data = response.json()
+        if keep is not None:
+            data = keep(data)
         CachedResponse.objects.update_or_create(
             endpoint=path,
             key=key,
@@ -253,7 +256,28 @@ class EbayClient:
         params = {"q": query, "limit": str(min(max(limit, 1), 200))}
         if category_ids:
             params["category_ids"] = category_ids
-        return self.get_json(SEARCH_PATH, params)
+        return self.get_json(SEARCH_PATH, params, keep=minimise_search)
+
+
+def minimise_search(data: dict) -> dict:
+    """Only what the price advice uses: no seller names, locations or other user data.
+
+    Allow-listed rather than block-listed, so new fields eBay adds are not stored either.
+    """
+    items = []
+    for raw in (data.get("itemSummaries") or []) if isinstance(data, dict) else []:
+        if not isinstance(raw, dict):
+            continue
+        price = raw.get("price") if isinstance(raw.get("price"), dict) else {}
+        image = raw.get("image") if isinstance(raw.get("image"), dict) else {}
+        items.append({
+            "title": raw.get("title"),
+            "price": {"value": price.get("value"), "currency": price.get("currency")},
+            "itemWebUrl": raw.get("itemWebUrl"),
+            "condition": raw.get("condition"),
+            "image": {"imageUrl": image.get("imageUrl")},
+        })
+    return {"total": data.get("total") if isinstance(data, dict) else 0, "itemSummaries": items}
 
 
 def _retry_after_seconds(response) -> float | None:

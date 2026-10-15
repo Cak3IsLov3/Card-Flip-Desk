@@ -86,6 +86,47 @@ def test_invalid_credentials_give_api_error(client, respx_mock):
 
 # --- search, cache and ETag ----------------------------------------------------
 
+FULL_ITEM = {
+    "itemId": "v1|1|0", "title": "Haaland Topps Chrome", "price": {"value": "8.50", "currency": "EUR"},
+    "itemWebUrl": "https://www.ebay.de/itm/1", "condition": "Ungraded", "image": {"imageUrl": "https://i.ebayimg.com/x.jpg"},
+    "seller": {"username": "some_seller", "feedbackPercentage": "99.8", "feedbackScore": 1234},
+    "itemLocation": {"postalCode": "10115", "country": "DE"}, "buyingOptions": ["FIXED_PRICE"],
+}
+
+
+def test_search_stores_no_seller_or_other_user_data(client, token_route, respx_mock):
+    respx_mock.get(SEARCH_URL).mock(return_value=httpx.Response(200, json={"total": 1, "itemSummaries": [FULL_ITEM]}))
+    result = client.search_items("Haaland")
+    expected = {"total": 1, "itemSummaries": [{
+        "title": "Haaland Topps Chrome", "price": {"value": "8.50", "currency": "EUR"},
+        "itemWebUrl": "https://www.ebay.de/itm/1", "condition": "Ungraded",
+        "image": {"imageUrl": "https://i.ebayimg.com/x.jpg"},
+    }]}
+    assert result.data == expected
+    assert CachedResponse.objects.get().data == expected
+    assert "some_seller" not in str(CachedResponse.objects.values_list("data", flat=True))
+
+
+def test_minimise_search_survives_odd_input():
+    from ebay.client import minimise_search
+
+    assert minimise_search({}) == {"total": None, "itemSummaries": []}
+    assert minimise_search({"itemSummaries": ["x", {"price": "bad"}]})["itemSummaries"] == [
+        {"title": None, "price": {"value": None, "currency": None}, "itemWebUrl": None, "condition": None,
+         "image": {"imageUrl": None}}]
+
+
+def test_migration_drops_old_cached_responses(db):
+    import importlib
+
+    from django.apps import apps
+    from django.utils import timezone
+
+    CachedResponse.objects.create(endpoint="/x", key="k", data={"seller": {"username": "a"}}, fetched_at=timezone.now())
+    importlib.import_module("ebay.migrations.0003_drop_cached_user_data").forwards(apps, None)
+    assert not CachedResponse.objects.exists()
+
+
 def test_search_sends_headers_and_caches_with_etag(client, token_route, respx_mock):
     route = respx_mock.get(SEARCH_URL).mock(
         return_value=httpx.Response(200, json={"total": 1, "itemSummaries": []}, headers={"ETag": '"abc"'})
@@ -114,7 +155,7 @@ def test_expired_cache_revalidates_with_etag_304(client, token_route, respx_mock
     CachedResponse.objects.update(fetched_at=timezone.now() - timedelta(hours=2))
     result = client.search_items("x")
     assert route.calls[1].request.headers["If-None-Match"] == '"v1"'
-    assert result.from_cache and not result.stale and result.data == {"total": 5}
+    assert result.from_cache and not result.stale and result.data == {"total": 5, "itemSummaries": []}
     assert timezone.now() - CachedResponse.objects.get().fetched_at < timedelta(minutes=1)
 
 
@@ -122,7 +163,7 @@ def test_429_is_retried_after_retry_after(client, token_route, respx_mock, sleep
     route = respx_mock.get(SEARCH_URL).mock(
         side_effect=[httpx.Response(429, headers={"Retry-After": "2"}), httpx.Response(200, json={"total": 0})]
     )
-    assert client.search_items("x").data == {"total": 0}
+    assert client.search_items("x").data == {"total": 0, "itemSummaries": []}
     assert route.call_count == 2
     assert sleeps == [2.0]
 
@@ -149,7 +190,7 @@ def test_network_error_falls_back_to_stale_cache(client, token_route, respx_mock
     CachedResponse.objects.update(fetched_at=timezone.now() - timedelta(days=2))
     route.mock(side_effect=httpx.ConnectError("geen netwerk"))
     result = client.search_items("x")
-    assert result.stale and result.from_cache and result.data == {"total": 3}
+    assert result.stale and result.from_cache and result.data == {"total": 3, "itemSummaries": []}
 
 
 def test_401_refreshes_token_once(client, respx_mock):
