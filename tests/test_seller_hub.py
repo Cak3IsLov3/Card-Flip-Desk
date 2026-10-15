@@ -137,6 +137,18 @@ def test_a_card_is_suggested_once(user, make_card):
     assert [s.card for s in sh.suggest_cards(rows, [card]).values()] == [card]
 
 
+def test_listing_generator_links_to_the_ebay_sell_form(user, make_card, client_for, settings):
+    settings.EBAY_MARKETPLACE_ID = "EBAY_DE"
+    card = make_card(user)
+    html = client_for(user).get(reverse("sales:listing_generator", args=[card.pk])).content.decode()
+    assert 'href="https://www.ebay.de/sl/prelist/suggest" target="_blank" rel="noopener noreferrer"' in html
+    assert "Open the eBay sell form" in html
+    # Also in the partial that HTMX swaps in when another template is chosen.
+    partial = client_for(user).get(reverse("sales:listing_generator", args=[card.pk]) + "?template=default",
+                                   HTTP_HX_REQUEST="true").content.decode()
+    assert "https://www.ebay.de/sl/prelist/suggest" in partial
+
+
 def test_sku_for_card(user, make_card, client_for):
     card = make_card(user)
     assert sh.sku_for(card) == f"CFD-{card.pk}"

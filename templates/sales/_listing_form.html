@@ -49,8 +49,11 @@
       {% if not listing or listing.status != "active" %}
       <button name="activate" value="1" class="secondary">Save and mark as active</button>
       {% endif %}
+      <a class="button secondary" href="{{ sell_url }}" target="_blank" rel="noopener noreferrer">Open the eBay sell form ↗</a>
       <a href="{% url 'finance:calculator' %}?card={{ card.pk }}">Work out a price</a>
     </div>
-    <p class="muted small">"Active" means you have put it on eBay yourself. Placing it through the eBay API comes later.</p>
+    <p class="muted small">On eBay: paste the title and description with the Copy buttons, add the photos in the order below
+      and put <code>{{ sku }}</code> in the custom label field. Back here, "Save and mark as active" records that it is on eBay.
+      Placing it through the eBay API comes later.</p>
   </form>
 </div>

@@ -10,6 +10,7 @@ from finance.calculator import CostInput, calculate
 from finance.forms import money_field
 from finance.models import DEFAULT_CATEGORY
 from inventory.models import Card, CardStatus
+from pricing.advice import ebay_site
 
 from . import listing_generator as gen
 from .forms import ListingDraftForm, ListingTemplateForm
@@ -81,6 +82,8 @@ def listing_generator(request, card_pk):
     context = {
         "card": card,
         "sku": sku_for(card),
+        # eBay's own "what are you selling?" page; the app does not post anything itself.
+        "sell_url": f"https://{ebay_site()}/sl/prelist/suggest",
         "listing": listing,
         "form": form,
         "generated": generated,
