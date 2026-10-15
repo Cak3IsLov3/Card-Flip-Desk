@@ -12,6 +12,26 @@ from urllib.parse import unquote, urlparse
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def _load_dotenv(path):
+    """Read KEY=value lines from a local .env (git-ignored) for runserver.
+
+    Real environment variables win, and empty values are skipped so a copied
+    .env.example does not blank out a default. Docker Compose reads .env itself.
+    """
+    if not path.is_file():
+        return
+    for line in path.read_text(encoding="utf-8-sig").splitlines():
+        key, sep, value = line.strip().partition("=")
+        if not sep or key.startswith("#") or not key.strip():
+            continue
+        value = value.strip().strip('"').strip("'")
+        if value:
+            os.environ.setdefault(key.strip(), value)
+
+
+_load_dotenv(BASE_DIR / ".env")
+
+
 def _env_bool(name, default="0"):
     return os.environ.get(name, default) == "1"
 

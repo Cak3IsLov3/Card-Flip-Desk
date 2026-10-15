@@ -489,6 +489,10 @@ curl -H "Authorization: Token <token>" "http://localhost:8000/api/v1/cards/?stat
 Everything comes from environment variables; the defaults are for local
 development.
 
+For `runserver` you can also put them in a `.env` file in the project folder
+(git-ignored); real environment variables take precedence and empty values are
+skipped. Docker Compose reads the same file.
+
 | Variable | Default | Purpose |
 |---|---|---|
 | `DJANGO_SECRET_KEY` | dev value | **Always set outside local development** |
