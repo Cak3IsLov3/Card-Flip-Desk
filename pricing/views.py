@@ -4,7 +4,7 @@ from django.utils import timezone
 
 from inventory.models import Card
 
-from .advice import build_advice, parse_sold_prices, search_query, sold_search_url
+from .advice import build_advice, parse_sold_prices, price_history, search_query, sold_search_url
 
 
 @login_required
@@ -28,6 +28,7 @@ def card_advice(request, card_pk):
         "sold_url": sold_search_url(advice.query),
         "sold_text": request.POST.get("prices", "") if sold is not None else "",
         "snapshots": card.price_snapshots.all()[:10],
+        "history": price_history(card),
         "fetched": fetch or sold is not None,
     }
     template = "pricing/_advice.html" if request.htmx else "pricing/card_advice.html"

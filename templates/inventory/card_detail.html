@@ -18,6 +18,8 @@
     <dl class="kv">
       <dt>Player</dt><dd>{{ card.player }}</dd>
       <dt>Sport</dt><dd>{{ card.sport|default:"–" }}</dd>
+      <dt>Last price advice</dt><dd>{% if last_advice %}<a href="{% url 'pricing:card_advice' card.pk %}">{{ last_advice.price|euro }}</a>
+        <span class="small muted">({{ last_advice.get_source_display }}, {{ last_advice.taken_at|timesince }} ago)</span>{% else %}<a href="{% url 'pricing:card_advice' card.pk %}">Check the price</a>{% endif %}</dd>
       <dt>Set</dt><dd>{{ card.set_name }} ({{ card.year }})</dd>
       <dt>Number</dt><dd>{{ card.card_number|default:"–" }}</dd>
       <dt>Variants</dt><dd>{{ card.variant_display }}</dd>

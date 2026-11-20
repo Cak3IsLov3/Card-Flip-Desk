@@ -86,6 +86,7 @@ def card_detail(request, pk):
             "purchase_form": PurchaseForm(),
             "sale": Sale.objects.filter(listing__card=card).first(),
             "profit": card_profit(card),
+            "last_advice": card.price_snapshots.first(),
             "pin_form": PinForm(initial={"held_until": timezone.localdate() + timedelta(days=30)}),
         },
     )

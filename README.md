@@ -458,8 +458,17 @@ schtasks /Create /SC WEEKLY /D MON /ST 08:00 /TN "Card Flip Desk digest" /TR "\"
   (from 2 onwards), the median of your own sales (from 2 onwards), a single
   sold price, the median of the active asking prices (with a clear note that
   those are not sale prices), and finally a single own sale.
+- **Price levels:** from three prices onwards the advice shows *Quick sale*
+  (25th percentile), *Normal* (median) and *Patient* (75th percentile), each
+  with the profit and margin at that price (excluding shipping, current fee
+  profile).
+- **Use this price** opens the listing generator with that asking price filled
+  in (`?price=26.25`); invalid or out-of-range values are ignored.
 - **Snapshots:** every fetch and every set of sold prices creates a
-  `PriceSnapshot`, so you can see how the price moves.
+  `PriceSnapshot`. From two days of data the page shows a *Price over time*
+  chart: the median per day for each source, one colour and point shape per
+  source, with the snapshots table as the table view. The card page shows the
+  latest advice.
 
 ## REST API
 
@@ -540,7 +549,7 @@ skipped. Docker Compose reads the same file.
   the healthchecks, fetches `/health/`, the login page and a static file, and
   runs `check --deploy`.
 
-339 tests, without a network (eBay is mocked with respx), in about a minute
+366 tests, without a network (eBay is mocked with respx), in about a minute
 and a half. A selection:
 
 - **Calculator:** known examples with exact `Decimal`s, rounding boundaries

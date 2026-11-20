@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
@@ -6,6 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET
 
+from finance.amounts import parse_amount
 from finance.calculator import CostInput, calculate
 from finance.forms import money_field
 from finance.models import DEFAULT_CATEGORY
@@ -48,6 +51,12 @@ def profit_preview(user, card, price):
     return calculate(CostInput(sale_price=price, purchase_cost=card.total_cost), fees)
 
 
+def _price_param(raw):
+    """A price passed from the price advice (?price=26.25), or None."""
+    value = parse_amount(raw) if raw else None
+    return value if value is not None and Decimal("0") < value < Decimal("100000") else None
+
+
 @login_required
 def listing_generator(request, card_pk):
     card = get_object_or_404(Card, pk=card_pk, owner=request.user)
@@ -77,6 +86,10 @@ def listing_generator(request, card_pk):
             "description": generated.description if regenerate else listing.description,
             "asking_price": listing.asking_price if listing else None,
         }
+        price_from_advice = _price_param(request.GET.get("price"))
+        if price_from_advice is not None:
+            initial["asking_price"] = price_from_advice
+            messages.info(request, f"Asking price set to €{price_from_advice} from the price advice; save to keep it.")
         form = ListingDraftForm(initial=initial)
 
     context = {

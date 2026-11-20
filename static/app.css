@@ -1,12 +1,12 @@
 :root {
   --bg: #f6f7f9; --panel: #fff; --text: #1d2330; --muted: #667085; --line: #e3e6eb;
   --accent: #2459d6; --good: #1a7f4b; --bad: #c0392b; --warn: #b7791f;
-  --series-1: #2a78d6; --series-2: #eb6834;
+  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a;
 }
 @media (prefers-color-scheme: dark) {
   :root { --bg: #14171c; --panel: #1c2027; --text: #e7e9ee; --muted: #9aa3b2; --line: #2c323c;
           --accent: #6d97ff; --good: #4fc788; --bad: #ff7a6b; --warn: #f0b552;
-          --series-1: #3987e5; --series-2: #d95926; }
+          --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; }
 }
 * { box-sizing: border-box; }
 body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
@@ -86,6 +86,10 @@ td.num, th.num, td.nowrap { white-space: nowrap; }
 .legend span { display: inline-flex; align-items: center; gap: .35rem; }
 .key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
 .key-1 { background: var(--series-1); } .key-2 { background: var(--series-2); }
+/* Price history: one colour per source (validated categorical slots 1-3). */
+.key-manual_sold { background: var(--series-1); } .key-own_history { background: var(--series-2); }
+.key-ebay_active { background: var(--series-3); }
+tr.highlight td { background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .chart-card details { margin-top: .75rem; }
 .panel > table { width: 100%; }.copy-row { display: flex; gap: .5rem; align-items: center; }
 .copy-row input { flex: 1; min-width: 0; }

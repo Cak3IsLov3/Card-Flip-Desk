@@ -41,10 +41,26 @@
     {% endif %}
     {% if advice.suggested_price is not None %}
       <p>Suggested price: <strong>{{ advice.suggested_price|euro }}</strong> <span class="muted small">— {{ advice.basis }}</span></p>
-      {% if advice.preview %}
-      <p class="small {% if advice.preview.is_loss %}bad{% else %}muted{% endif %}">At that price (excluding shipping): profit {{ advice.preview.profit|euro }}, margin {{ advice.preview.margin|pct }}.{% if advice.preview.is_loss %} You make a loss.{% endif %}</p>
+      {% if advice.levels %}
+      <div class="table-wrap"><table>
+        <thead><tr><th>Price level</th><th class="num">Asking price</th><th class="num">Profit</th><th class="num">Margin</th><th></th></tr></thead>
+        <tbody>{% for level in advice.levels %}
+          <tr{% if level.key == "normal" %} class="highlight"{% endif %}>
+            <td><strong>{{ level.label }}</strong><div class="small muted">{{ level.hint }}</div></td>
+            <td class="num">{{ level.price|euro }}</td>
+            <td class="num {% if level.preview.is_loss %}bad{% endif %}">{% if level.preview %}{{ level.preview.profit|euro }}{% else %}–{% endif %}</td>
+            <td class="num">{% if level.preview %}{{ level.preview.margin|pct }}{% else %}–{% endif %}</td>
+            <td>{% if card.status != "sold" %}<a href="{% url 'sales:listing_generator' card.pk %}?price={{ level.price|stringformat:"s" }}">Use this price</a>{% endif %}</td>
+          </tr>
+        {% endfor %}</tbody>
+      </table></div>
+      <p class="small muted">Profit excluding shipping, with your current fee profile. From 3 prices onwards the advice shows these three levels.</p>
+      {% else %}
+        {% if advice.preview %}
+        <p class="small {% if advice.preview.is_loss %}bad{% else %}muted{% endif %}">At that price (excluding shipping): profit {{ advice.preview.profit|euro }}, margin {{ advice.preview.margin|pct }}.{% if advice.preview.is_loss %} You make a loss.{% endif %}</p>
+        {% endif %}
+        {% if card.status != "sold" %}<p><a class="button secondary" href="{% url 'sales:listing_generator' card.pk %}?price={{ advice.suggested_price|stringformat:"s" }}">Use this price</a></p>{% endif %}
       {% endif %}
-      <p><a class="button secondary" href="{% url 'sales:listing_generator' card.pk %}">Go to the listing generator</a></p>
     {% endif %}
   </section>
 
@@ -87,6 +103,15 @@
     </table></div>
     {% else %}<p class="muted">No sales of this player from this set yet.</p>{% endif %}
   </section>
+
+  {% if history %}
+  <section class="panel chart-card">
+    <h2>Price over time</h2>
+    {{ history|json_script:"price-history" }}
+    <div class="legend" aria-hidden="true">{% for s in history.series %}<span><i class="key key-{{ s.key }}"></i>{{ s.label }}</span>{% endfor %}</div>
+    <div class="chart-box"><canvas id="chart-price-history" role="img" aria-label="Line chart of the median price per day; the figures are in the snapshots table below."></canvas></div>
+  </section>
+  {% endif %}
 
   {% if snapshots %}
   <section class="panel">

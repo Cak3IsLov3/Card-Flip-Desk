@@ -1,4 +1,7 @@
 {% extends "base.html" %}
+{% load static %}
+{% block head %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js" defer></script>
+<script src="{% static 'price_history.js' %}" defer></script>{% endblock %}
 {% block title %}Price advice – {{ card }} – Card Flip Desk{% endblock %}
 {% block content %}
 <h1>Price advice</h1>

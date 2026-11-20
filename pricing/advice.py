@@ -17,6 +17,7 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from urllib.parse import urlencode, urlparse
 
 from django.conf import settings
+from django.utils import timezone
 
 from ebay.client import EbayClient, EbayError, EbayNotConfigured, EbayRateLimited, EbayUnavailable
 from finance.amounts import parse_amount
@@ -42,20 +43,33 @@ MARKETPLACE_SITES = {
 }
 
 
+MIN_PRICES_FOR_LEVELS = 3
+
+
+def _cent(value) -> Decimal:
+    return Decimal(value).quantize(CENT, rounding=ROUND_HALF_UP)
+
+
 @dataclass(frozen=True)
 class PriceStats:
     count: int
     minimum: Decimal
     median: Decimal
     maximum: Decimal
+    # Quartiles (25th and 75th percentile), from three prices onwards.
+    low: Decimal | None = field(default=None, compare=False)
+    high: Decimal | None = field(default=None, compare=False)
 
     @classmethod
     def of(cls, prices) -> "PriceStats | None":
         prices = sorted(prices)
         if not prices:
             return None
-        median = Decimal(statistics.median(prices)).quantize(CENT, rounding=ROUND_HALF_UP)
-        return cls(len(prices), prices[0], median, prices[-1])
+        low = high = None
+        if len(prices) >= MIN_PRICES_FOR_LEVELS:
+            q1, _, q3 = statistics.quantiles(prices, n=4, method="inclusive")
+            low, high = _cent(q1), _cent(q3)
+        return cls(len(prices), prices[0], _cent(statistics.median(prices)), prices[-1], low, high)
 
 
 @dataclass
@@ -97,6 +111,17 @@ class SoldPrices:
 
 
 @dataclass
+class PriceLevel:
+    """One asking price to choose from, with the profit at that price."""
+
+    key: str
+    label: str
+    hint: str
+    price: Decimal
+    preview: object = None  # CostResult
+
+
+@dataclass
 class Advice:
     card: Card
     query: str
@@ -107,6 +132,7 @@ class Advice:
     basis: str
     preview: object = None  # CostResult at the suggested price
     sold: SoldPrices | None = None
+    levels: list[PriceLevel] = field(default_factory=list)
 
 
 def search_query(card: Card) -> str:
@@ -289,25 +315,39 @@ def build_advice(
         )
 
     # What buyers really paid comes first; asking prices come last.
-    suggested, basis = None, ""
+    basis_stats, basis = None, ""
     if sold and sold.stats and sold.stats.count >= MIN_SOLD_PRICES_FOR_ADVICE:
-        suggested, basis = sold.stats.median, "median of the sold prices you entered"
+        basis_stats, basis = sold.stats, "median of the sold prices you entered"
     elif own.stats and own.stats.count >= MIN_OWN_SALES_FOR_ADVICE:
-        suggested, basis = own.stats.median, "median of your own sales"
+        basis_stats, basis = own.stats, "median of your own sales"
     elif sold and sold.stats:
-        suggested, basis = sold.stats.median, "the only sold price you entered"
+        basis_stats, basis = sold.stats, "the only sold price you entered"
     elif active and active.stats:
-        suggested, basis = active.stats.median, "median of the active asking prices (not sale prices!)"
+        basis_stats, basis = active.stats, "median of the active asking prices (not sale prices!)"
     elif own.stats:
-        suggested, basis = own.stats.median, "your only previous sale"
+        basis_stats, basis = own.stats, "your only previous sale"
+    suggested = basis_stats.median if basis_stats else None
 
-    preview = None
-    if suggested is not None:
-        try:
-            fees = fees_for(card.owner, DEFAULT_CATEGORY, today)
-            preview = calculate(CostInput(sale_price=suggested, purchase_cost=card.total_cost), fees)
-        except NoFeeProfile:
-            pass
+    try:
+        fees = fees_for(card.owner, DEFAULT_CATEGORY, today)
+    except NoFeeProfile:
+        fees = None
+
+    def profit_at(price):
+        if fees is None:
+            return None
+        return calculate(CostInput(sale_price=price, purchase_cost=card.total_cost), fees)
+
+    preview = profit_at(suggested) if suggested is not None else None
+    levels = []
+    if basis_stats and basis_stats.low is not None:
+        levels = [
+            PriceLevel("quick", "Quick sale", "cheaper than 3 in 4 comparable prices", basis_stats.low),
+            PriceLevel("normal", "Normal", "the median", basis_stats.median),
+            PriceLevel("patient", "Patient", "dearer than 3 in 4; expect to wait", basis_stats.high),
+        ]
+        for level in levels:
+            level.preview = profit_at(level.price)
 
     if fetch and active and active.stats and not active.stale:
         PriceSnapshot.objects.create(
@@ -326,4 +366,31 @@ def build_advice(
             card=card, source=PriceSource.OWN_HISTORY, price=own.stats.median,
             minimum=own.stats.minimum, maximum=own.stats.maximum, listing_count=own.stats.count,
         )
-    return Advice(card, query, active, own, summary, suggested, basis, preview, sold)
+    return Advice(card, query, active, own, summary, suggested, basis, preview, sold, levels)
+
+
+SOURCE_ORDER = [PriceSource.MANUAL_SOLD, PriceSource.OWN_HISTORY, PriceSource.EBAY_ACTIVE]
+
+
+def price_history(card: Card, limit: int = 200) -> dict | None:
+    """Median per source per day, for the history chart. None below two days of data."""
+    snapshots = list(card.price_snapshots.order_by("-taken_at", "-id")[:limit])
+    if not snapshots:
+        return None
+    per_day = {}  # (source, day) -> latest median that day
+    for s in reversed(snapshots):  # oldest first, so the latest of a day wins
+        per_day[(s.source, timezone.localdate(s.taken_at))] = s.price
+    days = sorted({day for _, day in per_day})
+    if len(days) < 2:
+        return None
+    labels = dict(PriceSource.choices)
+    series = []
+    for source in SOURCE_ORDER:
+        values = [per_day.get((source, day)) for day in days]
+        if any(v is not None for v in values):
+            series.append({
+                "key": source.value, "label": labels[source],
+                # Amounts as strings: JSON has no Decimal and a float would round.
+                "values": [str(v) if v is not None else None for v in values],
+            })
+    return {"days": [d.strftime("%d-%m-%Y") for d in days], "series": series}
